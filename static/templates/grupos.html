@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block title %}Classificação dos Grupos - Bolão Copa 2026{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="d-flex align-items-center justify-content-between">
+            <div>
+                <h2 class="mb-1">📊 Classificação dos Grupos</h2>
+                <p class="text-muted mb-0">Atualizado em tempo real • Auto-refresh a cada 30s</p>
+            </div>
+            <div class="d-flex align-items-center">
+                <span class="live-indicator me-2"></span>
+                <span class="text-success fw-bold">LIVE</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Last Update Info -->
+<div class="row mb-3">
+    <div class="col-12">
+        <small id="last-update" class="text-muted">
+            <i class="bi bi-clock me-1"></i>Última atualização: <span id="update-time">--:--:--</span>
+        </small>
+    </div>
+</div>
+
+<div class="row" id="groups-container">
+    <!-- Groups will be loaded here -->
+    <div class="col-12 text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Carregando...</span>
+        </div>
+        <p class="mt-2 text-muted">Carregando classificações...</p>
+    </div>
+</div>
+
+<!-- Legend -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title">Legenda</h6>
+                <div class="d-flex flex-wrap gap-3 mb-2">
+                    <span class="badge bg-success">1º - Classificado</span>
+                    <span class="badge bg-primary">2º - Classificado</span>
+                    <span class="badge bg-info text-dark">3º - Melhores 3ºs</span>
+                    <span class="badge bg-secondary">Eliminado</span>
+                </div>
+                <div class="d-flex flex-wrap gap-3">
+                    <span class="text-success fw-bold">↑ Subiu posição</span>
+                    <span class="text-danger fw-bold">↓ Desceu posição</span>
+                    <span class="text-muted">● Mesma posição</span>
+                </div>
+                <small class="text-muted d-block mt-2">
+                    * Os 2 primeiros de cada grupo + 8 melhores 3ºs colocados avançam para a fase de 32.
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<style>
+.live-indicator {
+    width: 10px;
+    height: 10px;
+    background-color: #198754;
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.2); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+.team-flag {
+    font-size: 1.5rem;
+    margin-right: 0.5rem;
+}
+
+.position-change {
+    font-size: 0.75rem;
+    margin-left: 0.25rem;
+}
+
+.standings-table th {
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.standings-table td {
+    font-size: 0.875rem;
+    vertical-align: middle;
+}
+
+.team-name-cell {
+    display: flex;
+    align-items: center;
+}
+
+.highlight-change {
+    animation: highlight 2s ease-out;
+}
+
+@keyframes highlight {
+    0% { background-color: rgba(255, 193, 7, 0.5); }
+    100% { background-color: transparent; }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Store previous standings for comparison
+let previousStandings = {};
+let autoRefreshInterval;
+
+// Note: FLAG_IMAGES and getFlagImage are defined in base.html
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadGroupStandings();
+    
+    // Auto-refresh every 30 seconds
+    autoRefreshInterval = setInterval(() => {
+        loadGroupStandings(true);
+    }, 30000);
+});
+
+window.addEventListener('beforeunload', function() {
+    if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+});
+
+async function loadGroupStandings(isRefresh = false) {
+    const token = localStorage.getItem('token');
+    
+    try {
+        const response = await fetch('/api/matches/standings/', {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        
+        if (!response.ok) throw new Error('Failed to load standings');
+        
+        const groups = await response.json();
+        const container = document.getElementById('groups-container');
+        
+        // Update last update time
+        document.getElementById('update-time').textContent = new Date().toLocaleTimeString('pt-BR');
+        
+        if (Object.keys(groups).length === 0) {
+            container.innerHTML = `
+                <div class="col-12 text-center py-5">
+                    <i class="bi bi-calendar-x display-1 text-muted"></i>
+                    <p class="mt-3 text-muted">Classificações serão atualizadas quando os jogos começarem.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Sort groups alphabetically
+        const sortedGroups = Object.keys(groups).sort();
+        
+        container.innerHTML = sortedGroups.map(group => {
+            const standings = groups[group];
+            
+            return `
+                <div class="col-lg-4 col-md-6 mb-4" data-group="${group}">
+                    <div class="card h-100 standings-card">
+                        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Grupo ${group}</h5>
+                            <span class="badge bg-light text-primary">${standings.length} times</span>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover mb-0 standings-table">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th class="text-center" style="width: 45px;">#</th>
+                                            <th>Time</th>
+                                            <th class="text-center">P</th>
+                                            <th class="text-center">V</th>
+                                            <th class="text-center">E</th>
+                                            <th class="text-center">D</th>
+                                            <th class="text-center">SG</th>
+                                            <th class="text-center">Pts</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${standings.map((team, index) => {
+                                            // Calculate position change
+                                            const prevPos = getPreviousPosition(group, team.team_code);
+                                            const currentPos = index + 1;
+                                            const posChange = prevPos ? prevPos - currentPos : 0;
+                                            
+                                            let badgeClass = 'bg-secondary';
+                                            if (index === 0) badgeClass = 'bg-success';
+                                            else if (index === 1) badgeClass = 'bg-primary';
+                                            else if (index === 2) badgeClass = 'bg-info text-dark';
+                                            
+                                            let changeIndicator = '<span class="text-muted position-change">●</span>';
+                                            if (posChange > 0) {
+                                                changeIndicator = `<span class="text-success position-change" title="Subiu ${posChange} posição(ões)">↑${posChange}</span>`;
+                                            } else if (posChange < 0) {
+                                                changeIndicator = `<span class="text-danger position-change" title="Desceu ${Math.abs(posChange)} posição(ões)">↓${Math.abs(posChange)}</span>`;
+                                            }
+                                            
+                                            const flagHtml = getFlagImage(team.team_code, '1.5rem');
+                                            const hasChanged = posChange !== 0 && isRefresh;
+                                            const highlightClass = hasChanged ? 'highlight-change' : '';
+                                            
+                                            return `
+                                                <tr class="${highlightClass}" data-team="${team.team_code}">
+                                                    <td class="text-center">
+                                                        <span class="badge ${badgeClass}">${currentPos}º</span>
+                                                        ${changeIndicator}
+                                                    </td>
+                                                    <td>
+                                                        <div class="team-name-cell">
+                                                            <span class="team-flag">${flagHtml}</span>
+                                                            <div>
+                                                                <strong>${team.team_code}</strong>
+                                                                <small class="d-block text-muted">${team.team}</small>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td class="text-center">${team.played}</td>
+                                                    <td class="text-center text-success">${team.won}</td>
+                                                    <td class="text-center text-warning">${team.drawn}</td>
+                                                    <td class="text-center text-danger">${team.lost}</td>
+                                                    <td class="text-center ${team.goal_difference > 0 ? 'text-success' : team.goal_difference < 0 ? 'text-danger' : ''}">
+                                                        ${team.goal_difference > 0 ? '+' : ''}${team.goal_difference}
+                                                    </td>
+                                                    <td class="text-center fw-bold text-primary">${team.points}</td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        // Store current standings for next comparison
+        storeCurrentStandings(groups);
+        
+    } catch (error) {
+        console.error('Error loading standings:', error);
+        if (!isRefresh) {
+            document.getElementById('groups-container').innerHTML = `
+                <div class="col-12 text-center py-5">
+                    <i class="bi bi-exclamation-triangle display-1 text-warning"></i>
+                    <p class="mt-3 text-muted">Erro ao carregar classificações.</p>
+                    <button class="btn btn-primary" onclick="loadGroupStandings()">Tentar Novamente</button>
+                </div>
+            `;
+        }
+    }
+}
+
+function getPreviousPosition(group, teamCode) {
+    if (!previousStandings[group]) return null;
+    const prevTeam = previousStandings[group].find((t, idx) => t.team_code === teamCode);
+    if (!prevTeam) return null;
+    return previousStandings[group].findIndex(t => t.team_code === teamCode) + 1;
+}
+
+function storeCurrentStandings(groups) {
+    previousStandings = JSON.parse(JSON.stringify(groups));
+}
+</script>
+{% endblock %}

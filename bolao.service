@@ -1,0 +1,16 @@
+[Unit]
+Description=Bolao App
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/bolao
+# Se houver venv, use o caminho abaixo. Caso contrario, remova a linha e certifique-se de que o gunicorn esta instalado globalmente
+Environment="PATH=/var/www/bolao/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/var/www/bolao/venv/bin/gunicorn --workers 3 --bind 127.0.0.1:5555 main:app
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

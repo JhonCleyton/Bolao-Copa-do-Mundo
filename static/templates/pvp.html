@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Desafios PVP - Bolão Copa 2026{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="mb-0"><i class="bi bi-lightning-charge-fill text-warning me-2"></i>Desafios PVP</h2>
+            <p class="text-muted">Desafie outros jogadores e aposte quem é o melhor!</p>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <button class="btn btn-success btn-lg" onclick="openNewChallengeModal()">
+                <i class="bi bi-plus-circle me-2"></i>Novo Desafio
+            </button>
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs" id="pvpTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="received-tab" data-bs-toggle="tab" data-bs-target="#received"
+                    type="button" role="tab" onclick="loadReceivedChallenges()">
+                <i class="bi bi-inbox me-1"></i>Recebidos
+                <span class="badge bg-danger ms-1" id="received-count" style="display:none">0</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="sent-tab" data-bs-toggle="tab" data-bs-target="#sent"
+                    type="button" role="tab" onclick="loadSentChallenges()">
+                <i class="bi bi-send me-1"></i>Enviados
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="active-tab" data-bs-toggle="tab" data-bs-target="#active"
+                    type="button" role="tab" onclick="loadActiveBets()">
+                <i class="bi bi-lightning me-1"></i>Ativas
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history"
+                    type="button" role="tab" onclick="loadHistory()">
+                <i class="bi bi-clock-history me-1"></i>Histórico
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content p-3 border border-top-0 rounded-bottom" id="pvpTabContent">
+        <div class="tab-pane fade show active" id="received" role="tabpanel">
+            <div id="received-list" class="row g-3"></div>
+        </div>
+        <div class="tab-pane fade" id="sent" role="tabpanel">
+            <div id="sent-list" class="row g-3"></div>
+        </div>
+        <div class="tab-pane fade" id="active" role="tabpanel">
+            <div id="active-list" class="row g-3"></div>
+        </div>
+        <div class="tab-pane fade" id="history" role="tabpanel">
+            <div id="history-list" class="row g-3"></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="newChallengeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-lightning-charge me-2"></i>Novo Desafio</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="challengeForm">
+                    <div class="mb-3">
+                        <label class="form-label">Desafiar Jogador</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="userSearch" placeholder="Buscar por nome...">
+                            <button class="btn btn-outline-secondary" type="button" onclick="searchUsers()">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                        <div id="userResults" class="list-group mt-2" style="max-height: 200px; overflow-y: auto;"></div>
+                        <input type="hidden" id="challengedId" required>
+                        <div id="selectedUser" class="alert alert-info mt-2 d-none"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de Aposta</label>
+                        <select class="form-select" id="betType" onchange="onBetTypeChange()" required>
+                            <option value="">Selecione...</option>
+                            <option value="match">Partida Específica</option>
+                            <option value="round">Rodada Completa</option>
+                            <option value="championship">Campeonato Inteiro</option>
+                        </select>
+                    </div>
+                    <div class="mb-3 d-none" id="matchSelectDiv">
+                        <label class="form-label">Selecionar Partida</label>
+                        <select class="form-select" id="matchId"></select>
+                    </div>
+                    <div class="mb-3 d-none" id="roundSelectDiv">
+                        <label class="form-label">Selecionar Rodada</label>
+                        <select class="form-select" id="roundNumber"></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Prêmio da Aposta</label>
+                        <input type="text" class="form-control" id="prizeDescription"
+                               placeholder="Ex: Uma Coca-Cola, R$ 20,00..." required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Expira em (horas)</label>
+                        <input type="number" class="form-control" id="expiresHours" min="1" max="168" value="24">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="submitChallenge()">
+                    <i class="bi bi-send me-2"></i>Enviar Desafio
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/pvp.js"></script>
+{% endblock %}

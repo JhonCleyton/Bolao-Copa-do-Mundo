@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+
+{% block title %}Partidas - Bolão Copa 2026{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12 text-center">
+            <h2 class="fw-bold"><i class="bi bi-broadcast me-2 text-danger"></i>Partidas Ao Vivo</h2>
+            <p class="text-muted">Acompanhe todos os jogos em tempo real</p>
+        </div>
+    </div>
+
+    <!-- Live Matches Section -->
+    <div class="row mb-4" id="live-section">
+        <div class="col-12">
+            <div class="d-flex align-items-center mb-3">
+                <span class="live-indicator me-2"></span>
+                <h4 class="mb-0">🔴 Ao Vivo Agora</h4>
+            </div>
+            <div id="live-matches" class="row g-3">
+                <div class="col-12 text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Buscando jogos ao vivo...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Today's Matches -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h4 class="mb-3"><i class="bi bi-calendar-event me-2"></i>Jogos de Hoje</h4>
+            <div id="today-matches" class="row g-3">
+                <div class="col-12 text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upcoming Matches -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h4 class="mb-3"><i class="bi bi-calendar-week me-2"></i>Próximos Jogos</h4>
+            <div id="upcoming-matches" class="row g-3">
+                <div class="col-12 text-center py-4 text-muted">
+                    Carregando agenda...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Finished Matches -->
+    <div class="row">
+        <div class="col-12">
+            <h4 class="mb-3"><i class="bi bi-check-circle me-2"></i>Últimos Resultados</h4>
+            <div id="finished-matches" class="row g-3">
+                <div class="col-12 text-center py-4 text-muted">
+                    Carregando resultados...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.live-indicator {
+    width: 12px;
+    height: 12px;
+    background-color: #dc3545;
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.2); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+.match-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.match-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.score-display {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #0d6efd;
+}
+
+.team-name {
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.status-badge {
+    font-size: 0.75rem;
+}
+</style>
+
+<script>
+let autoRefreshInterval;
+
+// Load all match sections
+document.addEventListener('DOMContentLoaded', function() {
+    loadLiveMatches();
+    loadTodayMatches();
+    loadUpcomingMatches();
+    loadFinishedMatches();
+    
+    // Auto-refresh live matches every 30 seconds
+    autoRefreshInterval = setInterval(() => {
+        loadLiveMatches();
+        loadTodayMatches();
+    }, 30000);
+});
+
+// Clean up on page leave
+window.addEventListener('beforeunload', function() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+});
+
+async function loadLiveMatches() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        document.getElementById('live-matches').innerHTML = `
+            <div class="col-12 text-center py-4">
+                <p class="text-muted">Faça login para ver jogos ao vivo</p>
+                <a href="/login" class="btn btn-primary">Entrar</a>
+            </div>`;
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/matches?status=live', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load');
+        
+        const matches = await response.json();
+        renderLiveMatches(matches);
+    } catch (error) {
+        console.error('Error loading live matches:', error);
+        document.getElementById('live-matches').innerHTML = `
+            <div class="col-12 text-center py-4 text-muted">
+                Nenhum jogo ao vivo no momento
+            </div>`;
+    }
+}
+
+function renderLiveMatches(matches) {
+    const container = document.getElementById('live-matches');
+    
+    if (!matches || matches.length === 0) {
+        container.innerHTML = `
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Nenhum jogo ao vivo no momento. Os jogos aparecerão aqui quando estiverem em andamento.
+                </div>
+            </div>`;
+        return;
+    }
+    
+    container.innerHTML = matches.map(match => createMatchCard(match, true)).join('');
+}
+
+async function loadTodayMatches() {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const response = await fetch('/api/matches', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load');
+        
+        const allMatches = await response.json();
+        const todayMatches = allMatches.filter(m => {
+            const matchDate = new Date(m.match_date).toISOString().split('T')[0];
+            return matchDate === today && m.status !== 'finished';
+        });
+        
+        renderTodayMatches(todayMatches);
+    } catch (error) {
+        console.error('Error loading today matches:', error);
+    }
+}
+
+function renderTodayMatches(matches) {
+    const container = document.getElementById('today-matches');
+    
+    if (!matches || matches.length === 0) {
+        container.innerHTML = `
+            <div class="col-12 text-center py-3 text-muted">
+                Nenhum jogo programado para hoje
+            </div>`;
+        return;
+    }
+    
+    container.innerHTML = matches.map(match => createMatchCard(match, false)).join('');
+}
+
+async function loadUpcomingMatches() {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    
+    try {
+        const response = await fetch('/api/matches?status=scheduled', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load');
+        
+        const matches = await response.json();
+        // Show only next 6 matches
+        const upcoming = matches.slice(0, 6);
+        renderUpcomingMatches(upcoming);
+    } catch (error) {
+        console.error('Error loading upcoming matches:', error);
+    }
+}
+
+function renderUpcomingMatches(matches) {
+    const container = document.getElementById('upcoming-matches');
+    
+    if (!matches || matches.length === 0) {
+        container.innerHTML = `
+            <div class="col-12 text-center py-3 text-muted">
+                Nenhum jogo agendado
+            </div>`;
+        return;
+    }
+    
+    container.innerHTML = matches.map(match => createMatchCard(match, false)).join('');
+}
+
+async function loadFinishedMatches() {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    
+    try {
+        const response = await fetch('/api/matches?status=finished', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load');
+        
+        const matches = await response.json();
+        // Show only last 6 finished matches
+        const finished = matches.slice(0, 6);
+        renderFinishedMatches(finished);
+    } catch (error) {
+        console.error('Error loading finished matches:', error);
+    }
+}
+
+function renderFinishedMatches(matches) {
+    const container = document.getElementById('finished-matches');
+    
+    if (!matches || matches.length === 0) {
+        container.innerHTML = `
+            <div class="col-12 text-center py-3 text-muted">
+                Nenhum resultado ainda
+            </div>`;
+        return;
+    }
+    
+    container.innerHTML = matches.map(match => createMatchCard(match, false)).join('');
+}
+
+// Note: FLAG_IMAGES and getFlagImage are defined in base.html
+
+function createMatchCard(match, isLive) {
+    const statusConfig = {
+        'scheduled': { badge: 'bg-secondary', text: 'Agendado', icon: 'bi-clock' },
+        'live': { badge: 'bg-danger', text: 'Ao Vivo', icon: 'bi-broadcast' },
+        'finished': { badge: 'bg-success', text: 'Finalizado', icon: 'bi-check-circle' },
+        'suspended': { badge: 'bg-warning', text: 'Suspenso', icon: 'bi-pause' }
+    };
+    
+    const status = statusConfig[match.status] || statusConfig['scheduled'];
+    // Data já está em horário de Brasília, não tratar como UTC
+    const clean = match.match_date.replace('Z', '');
+    const matchDate = new Date(clean);
+    const formattedDate = matchDate.toLocaleDateString('pt-BR', { 
+        day: '2-digit', 
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    
+    const scoreA = match.score_a !== null ? match.score_a : '-';
+    const scoreB = match.score_b !== null ? match.score_b : '-';
+    const flagA = getFlagImage(match.team_a_code, '2rem');
+    const flagB = getFlagImage(match.team_b_code, '2rem');
+    
+    return `
+        <div class="col-md-6 col-lg-4">
+            <div class="card match-card h-100 ${isLive ? 'border-danger' : ''}">
+                <div class="card-header d-flex justify-content-between align-items-center py-2">
+                    <span class="badge ${status.badge} status-badge">
+                        <i class="bi ${status.icon} me-1"></i>${status.text}
+                    </span>
+                    <small class="text-muted">${match.round_number ? `Rodada ${match.round_number}` : ''}</small>
+                </div>
+                <div class="card-body text-center py-3">
+                    <div class="row align-items-center">
+                        <div class="col-4 text-end">
+                            <div style="margin-bottom: 0.5rem;">${flagA}</div>
+                            <div class="team-name">${match.team_a}</div>
+                            <small class="text-muted">${match.team_a_code || ''}</small>
+                        </div>
+                        <div class="col-4">
+                            <div class="score-display">
+                                ${scoreA} x ${scoreB}
+                            </div>
+                            ${isLive ? '<small class="text-danger fw-bold">LIVE</small>' : ''}
+                        </div>
+                        <div class="col-4 text-start">
+                            <div style="margin-bottom: 0.5rem;">${flagB}</div>
+                            <div class="team-name">${match.team_b}</div>
+                            <small class="text-muted">${match.team_b_code || ''}</small>
+                        </div>
+                    </div>
+                    ${match.group ? `<div class="mt-2"><span class="badge bg-light text-dark">Grupo ${match.group}</span></div>` : ''}
+                </div>
+                <div class="card-footer text-center py-2">
+                    <small class="text-muted">
+                        <i class="bi bi-calendar me-1"></i>${formattedDate}
+                    </small>
+                </div>
+            </div>
+        </div>
+    `;
+}
+</script>
+{% endblock %}

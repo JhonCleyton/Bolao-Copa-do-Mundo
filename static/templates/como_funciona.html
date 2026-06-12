@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Como Funciona - Bolão Copa 2026{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-primary text-white text-center py-4">
+                    <h1 class="mb-0">🏆 Como Funciona o Bolão Copa 2026</h1>
+                </div>
+                <div class="card-body p-5">
+                    <div class="mb-5">
+                        <h3 class="text-primary mb-3">📝 Passo a Passo</h3>
+                        <ol class="list-group list-group-numbered">
+                            <li class="list-group-item">
+                                <strong>Cadastre-se</strong> no sistema usando seu email e senha
+                            </li>
+                            <li class="list-group-item">
+                                <strong>Faça o pagamento</strong> da participação para liberar seus palpites
+                            </li>
+                            <li class="list-group-item">
+                                <strong>Acesse a aba de Palpites</strong> e veja todos os jogos da Copa 2026
+                            </li>
+                            <li class="list-group-item">
+                                <strong>Faça seus palpites</strong> até 10 minutos antes do início de cada jogo
+                            </li>
+                            <li class="list-group-item">
+                                <strong>Acompanhe os resultados</strong> e veja sua pontuação no ranking
+                            </li>
+                        </ol>
+                    </div>
+
+                    <div class="mb-5">
+                        <h3 class="text-primary mb-3">📊 Sistema de Pontuação</h3>
+                        <div class="alert alert-info">
+                            <ul class="mb-0">
+                                <li><strong>Acertar resultado (vencedor ou empate):</strong> 2 pontos</li>
+                                <li><strong>Acertar gol de cada time:</strong> 2 pontos cada (total 4 pontos)</li>
+                                <li><strong>Bônus por placar exato:</strong> 2 pontos</li>
+                                <li><strong>Máximo por jogo:</strong> 8 pontos</li>
+                            </ul>
+                        </div>
+                        <div class="bg-light p-3 rounded">
+                            <h5 class="mb-2">Exemplo:</h5>
+                            <p class="mb-0">Resultado real: Brasil 1 x 2 Portugal</p>
+                            <ul class="mb-0">
+                                <li>Palpite 1x2 = <strong>8 pontos</strong> (2 resultado + 2 gols Brasil + 2 gols Portugal + 2 bônus)</li>
+                                <li>Palpite 1x0 = <strong>2 pontos</strong> (apenas gols do Brasil)</li>
+                                <li>Palpite 0x2 = <strong>4 pontos</strong> (resultado + gols Portugal)</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="mb-5">
+                        <h3 class="text-primary mb-3">⚠️ Regras Importantes</h3>
+                        <ul class="list-group">
+                            <li class="list-group-item">
+                                <i class="bi bi-clock text-warning me-2"></i>
+                                Palpites devem ser feitos até <strong>10 minutos antes</strong> do início do jogo
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-cash text-warning me-2"></i>
+                                <strong>Pagamento obrigatório</strong> para participar do bolão
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-trophy text-warning me-2"></i>
+                                Há <strong>prêmios por rodada</strong> para os melhores colocados
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-shield-check text-warning me-2"></i>
+                                Cada participante pode fazer apenas <strong>um palpite por jogo</strong>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="text-center mt-5">
+                        <a href="/cadastro" class="btn btn-primary btn-lg me-2">
+                            <i class="bi bi-person-plus me-2"></i>Cadastrar Agora
+                        </a>
+                        <a href="/" class="btn btn-outline-primary btn-lg">
+                            <i class="bi bi-house me-2"></i>Voltar ao Início
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

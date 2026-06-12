@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block title %}Central de Cobrança - Bolão Copa 2026{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 px-lg-5 py-4">
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-cash-coin me-2"></i>Central de Cobrança</h2>
+        <p class="text-muted mb-0">Valide inscrições e pagamentos por rodada para liberar a participação no bolão.</p>
+    </div>
+    <a href="/admin" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Voltar ao Admin
+    </a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm bg-primary text-white">
+            <div class="card-body">
+                <small>Usuários</small>
+                <h3 id="total-users" class="mb-0">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm bg-success text-white">
+            <div class="card-body">
+                <small>Inscrições pagas</small>
+                <h3 id="paid-registrations" class="mb-0">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm bg-warning">
+            <div class="card-body">
+                <small>Inscrições pendentes</small>
+                <h3 id="pending-registrations" class="mb-0">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm bg-info text-white">
+            <div class="card-body">
+                <small>Rodadas configuradas</small>
+                <h3 id="total-rounds" class="mb-0">0</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-dark text-white d-flex flex-wrap gap-2 justify-content-between align-items-center">
+        <span><i class="bi bi-table me-2"></i>Pagamentos dos Participantes</span>
+        <input type="text" class="form-control form-control-sm" id="billing-search" placeholder="Buscar por nome, email ou telefone..." style="max-width: 320px;" onkeyup="renderBillingTable()">
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            Para liberar palpites, o usuário precisa ter a <strong>inscrição paga</strong> e a <strong>rodada do jogo paga</strong>.
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead id="billing-table-head"></thead>
+                <tbody id="billing-table-body"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="paymentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="payment-modal-title">Validar Pagamento</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="payment-user-id">
+                <input type="hidden" id="payment-type">
+                <input type="hidden" id="payment-round-number">
+                <div class="mb-3">
+                    <label class="form-label">Participante</label>
+                    <input type="text" class="form-control" id="payment-user-name" disabled>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Valor (R$)</label>
+                    <input type="number" step="0.01" class="form-control" id="payment-amount" value="0">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">ID da transação / Observação</label>
+                    <input type="text" class="form-control" id="payment-transaction-id" placeholder="Pix, comprovante ou observação">
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="payment-paid">
+                    <label class="form-check-label" for="payment-paid">Pagamento validado</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="savePayment()">
+                    <i class="bi bi-check-circle me-1"></i>Salvar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let billingData = { rounds: [], users: [] };
+let paymentModal;
+
+document.addEventListener('DOMContentLoaded', function() {
+    paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
+    checkAdminAccessAndLoadBilling();
+});
+
+async function checkAdminAccessAndLoadBilling() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = '/login?redirect=/admin/cobrancas';
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/auth/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) {
+            window.location.href = '/login?redirect=/admin/cobrancas';
+            return;
+        }
+        const user = await response.json();
+        if (!user.is_admin) {
+            showToast('Acesso negado', 'Você não tem permissão de administrador', 'danger');
+            window.location.href = '/';
+            return;
+        }
+        loadBilling();
+    } catch (error) {
+        window.location.href = '/login?redirect=/admin/cobrancas';
+    }
+}
+
+async function loadBilling() {
+    const token = localStorage.getItem('token');
+    try {
+        const response = await fetch('/api/admin/billing', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) {
+            showToast('Erro', 'Não foi possível carregar a central de cobrança', 'danger');
+            return;
+        }
+        billingData = await response.json();
+        updateStats();
+        renderBillingTable();
+    } catch (error) {
+        showToast('Erro', 'Erro de conexão ao carregar cobranças', 'danger');
+    }
+}
+
+function updateStats() {
+    const totalUsers = billingData.users.length;
+    const paidRegistrations = billingData.users.filter(user => user.registration_payment.paid).length;
+    document.getElementById('total-users').textContent = totalUsers;
+    document.getElementById('paid-registrations').textContent = paidRegistrations;
+    document.getElementById('pending-registrations').textContent = totalUsers - paidRegistrations;
+    document.getElementById('total-rounds').textContent = billingData.rounds.length;
+}
+
+function renderBillingTable() {
+    const term = document.getElementById('billing-search').value.toLowerCase();
+    const head = document.getElementById('billing-table-head');
+    const body = document.getElementById('billing-table-body');
+
+    head.innerHTML = `
+        <tr>
+            <th>Participante</th>
+            <th>Status</th>
+            <th>Inscrição</th>
+            ${billingData.rounds.map(round => `<th>Rodada ${round}</th>`).join('')}
+        </tr>
+    `;
+
+    const users = billingData.users.filter(user => {
+        const text = `${user.full_name} ${user.email} ${user.phone || ''}`.toLowerCase();
+        return text.includes(term);
+    });
+
+    body.innerHTML = users.map(user => `
+        <tr>
+            <td>
+                <strong>${user.full_name}</strong><br>
+                <small class="text-muted">${user.email}</small><br>
+                <small class="text-muted">${user.phone || '-'}</small>
+            </td>
+            <td><span class="badge bg-${user.status === 'active' ? 'success' : 'warning'}">${user.status}</span></td>
+            <td>${renderPaymentButton(user, 'registration')}</td>
+            ${billingData.rounds.map(round => `<td>${renderPaymentButton(user, 'round', round)}</td>`).join('')}
+        </tr>
+    `).join('');
+}
+
+function renderPaymentButton(user, type, roundNumber = null) {
+    const payment = type === 'registration' ? user.registration_payment : user.round_payments[String(roundNumber)];
+    const label = payment.paid ? 'Pago' : 'Pendente';
+    const color = payment.paid ? 'success' : 'outline-danger';
+    const title = type === 'registration' ? 'Inscrição' : `Rodada ${roundNumber}`;
+
+    return `
+        <button class="btn btn-sm btn-${color}" onclick='openPaymentModal(${JSON.stringify(user)}, "${type}", ${roundNumber || 'null'})'>
+            <i class="bi bi-${payment.paid ? 'check-circle' : 'x-circle'} me-1"></i>${label}
+        </button>
+        <div><small class="text-muted">${title}</small></div>
+    `;
+}
+
+function openPaymentModal(user, type, roundNumber) {
+    const payment = type === 'registration' ? user.registration_payment : user.round_payments[String(roundNumber)];
+    const title = type === 'registration' ? 'Inscrição' : `Rodada ${roundNumber}`;
+
+    document.getElementById('payment-modal-title').textContent = `Validar Pagamento - ${title}`;
+    document.getElementById('payment-user-id').value = user.id;
+    document.getElementById('payment-type').value = type;
+    document.getElementById('payment-round-number').value = roundNumber || '';
+    document.getElementById('payment-user-name').value = user.full_name;
+    document.getElementById('payment-amount').value = payment.amount || 0;
+    document.getElementById('payment-transaction-id').value = payment.transaction_id || '';
+    document.getElementById('payment-paid').checked = Boolean(payment.paid);
+
+    paymentModal.show();
+}
+
+async function savePayment() {
+    const token = localStorage.getItem('token');
+    const params = new URLSearchParams({
+        user_id: document.getElementById('payment-user-id').value,
+        payment_type: document.getElementById('payment-type').value,
+        paid: document.getElementById('payment-paid').checked,
+        amount: document.getElementById('payment-amount').value || 0
+    });
+
+    const roundNumber = document.getElementById('payment-round-number').value;
+    const transactionId = document.getElementById('payment-transaction-id').value;
+    if (roundNumber) params.append('round_number', roundNumber);
+    if (transactionId) params.append('transaction_id', transactionId);
+
+    try {
+        const response = await fetch(`/api/admin/billing/payment?${params.toString()}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (response.ok) {
+            showToast('Sucesso', 'Pagamento atualizado com sucesso', 'success');
+            paymentModal.hide();
+            loadBilling();
+        } else {
+            showToast('Erro', data.detail || 'Erro ao salvar pagamento', 'danger');
+        }
+    } catch (error) {
+        showToast('Erro', 'Erro de conexão ao salvar pagamento', 'danger');
+    }
+}
+</script>
+{% endblock %}

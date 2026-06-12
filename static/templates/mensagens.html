@@ -1,0 +1,586 @@
+{% extends "base.html" %}
+
+{% block title %}Central de Mensagens - Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 px-lg-5 py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="bi bi-chat-dots me-2"></i>Central de Mensagens</h2>
+            <small class="text-muted">Gerencie mensagens automáticas, agendamentos e envios diretos</small>
+        </div>
+        <a href="/admin" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Voltar ao Admin
+        </a>
+    </div>
+
+    <ul class="nav nav-tabs mb-4" id="messagesTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-send" data-bs-toggle="tab" data-bs-target="#pane-send" type="button">
+                <i class="bi bi-send me-1"></i>Enviar / Agendar
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-scheduled" data-bs-toggle="tab" data-bs-target="#pane-scheduled" type="button">
+                <i class="bi bi-calendar-event me-1"></i>Agendamentos
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-history" data-bs-toggle="tab" data-bs-target="#pane-history" type="button">
+                <i class="bi bi-clock-history me-1"></i>Histórico
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-automatic" data-bs-toggle="tab" data-bs-target="#pane-automatic" type="button">
+                <i class="bi bi-robot me-1"></i>Automáticas
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- SEND / SCHEDULE -->
+        <div class="tab-pane fade show active" id="pane-send" role="tabpanel">
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-primary text-white">
+                            <i class="bi bi-pencil-square me-2"></i>Nova Mensagem
+                        </div>
+                        <div class="card-body">
+                            <form id="form-send">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Destinatário</label>
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="target_type" id="target-all" value="all" checked>
+                                            <label class="form-check-label" for="target-all">Todos</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="target_type" id="target-active" value="active">
+                                            <label class="form-check-label" for="target-active">Somente ativos</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="target_type" id="target-user" value="user">
+                                            <label class="form-check-label" for="target-user">Usuário específico</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mb-3 d-none" id="user-select-group">
+                                    <label class="form-label fw-bold">Selecione o usuário</label>
+                                    <select class="form-select" id="target-user-id">
+                                        <option value="">-- selecione --</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Canal</label>
+                                    <select class="form-select" id="channel">
+                                        <option value="both">Email + WhatsApp</option>
+                                        <option value="email">Email</option>
+                                        <option value="whatsapp">WhatsApp</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Assunto / Título</label>
+                                    <input type="text" class="form-control" id="subject" placeholder="Ex: Lembrete da rodada 5" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Mensagem</label>
+                                    <textarea class="form-control" id="message" rows="6" placeholder="Escreva sua mensagem..." required></textarea>
+                                    <small class="text-muted">Use quebras de linha normalmente. Para WhatsApp você pode usar *negrito* e _itálico_.</small>
+                                </div>
+                                <hr>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Agendar para (opcional)</label>
+                                        <input type="datetime-local" class="form-control" id="scheduled_at">
+                                        <small class="text-muted">Deixe vazio para enviar agora</small>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Recorrência (opcional)</label>
+                                        <select class="form-select" id="recurrence">
+                                            <option value="">Sem recorrência</option>
+                                            <option value="daily">Diária</option>
+                                            <option value="weekly">Semanal</option>
+                                            <option value="monthly">Mensal</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2 mt-4">
+                                    <button type="submit" class="btn btn-primary flex-fill">
+                                        <i class="bi bi-send-fill me-1"></i>Enviar / Agendar
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="resetForm()">
+                                        Limpar
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-5">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-info text-white">
+                            <i class="bi bi-lightbulb me-2"></i>Modelos Rápidos
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small">Clique para preencher o formulário com modelos prontos:</p>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-outline-primary text-start" onclick="useTemplate('reminder')">
+                                    <i class="bi bi-bell me-1"></i><strong>Lembrete de palpite</strong>
+                                    <div class="small text-muted">Lembre os usuários de fazerem palpites</div>
+                                </button>
+                                <button class="btn btn-outline-warning text-start" onclick="useTemplate('payment')">
+                                    <i class="bi bi-cash me-1"></i><strong>Cobrança pendente</strong>
+                                    <div class="small text-muted">Lembre sobre pagamentos pendentes</div>
+                                </button>
+                                <button class="btn btn-outline-success text-start" onclick="useTemplate('round_start')">
+                                    <i class="bi bi-flag me-1"></i><strong>Início de rodada</strong>
+                                    <div class="small text-muted">Avise que nova rodada começou</div>
+                                </button>
+                                <button class="btn btn-outline-info text-start" onclick="useTemplate('announcement')">
+                                    <i class="bi bi-megaphone me-1"></i><strong>Aviso geral</strong>
+                                    <div class="small text-muted">Comunicado para todos</div>
+                                </button>
+                                <button class="btn btn-outline-secondary text-start" onclick="useTemplate('rules')">
+                                    <i class="bi bi-book me-1"></i><strong>Regras do bolão</strong>
+                                    <div class="small text-muted">Reforce as regras</div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SCHEDULED -->
+        <div class="tab-pane fade" id="pane-scheduled" role="tabpanel">
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-calendar-event me-2"></i>Mensagens Agendadas e Recorrentes</span>
+                    <button class="btn btn-sm btn-dark" onclick="loadMessages()">
+                        <i class="bi bi-arrow-clockwise"></i> Atualizar
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Assunto</th>
+                                    <th>Canal</th>
+                                    <th>Destino</th>
+                                    <th>Agendado para</th>
+                                    <th>Recorrência</th>
+                                    <th>Próx. envio</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scheduled-tbody">
+                                <tr><td colspan="9" class="text-center text-muted">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HISTORY -->
+        <div class="tab-pane fade" id="pane-history" role="tabpanel">
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-clock-history me-2"></i>Histórico de Mensagens Enviadas</span>
+                    <button class="btn btn-sm btn-light" onclick="loadMessages()">
+                        <i class="bi bi-arrow-clockwise"></i> Atualizar
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Assunto</th>
+                                    <th>Canal</th>
+                                    <th>Destino</th>
+                                    <th>Enviado em</th>
+                                    <th>Enviadas</th>
+                                    <th>Falhas</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-tbody">
+                                <tr><td colspan="9" class="text-center text-muted">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AUTOMATIC -->
+        <div class="tab-pane fade" id="pane-automatic" role="tabpanel">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                Estas são as mensagens <strong>automáticas</strong> configuradas no sistema. Elas rodam em segundo plano e não podem ser desligadas pelo painel.
+            </div>
+            <div class="row g-3" id="automatic-list">
+                <div class="col-12 text-center text-muted">Carregando...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View modal -->
+    <div class="modal fade" id="viewMessageModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-envelope-open me-2"></i>Detalhes da Mensagem</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="view-content"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let viewModal;
+let allMessages = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    viewModal = new bootstrap.Modal(document.getElementById('viewMessageModal'));
+    checkAdmin();
+    loadUsers();
+    loadAutomatic();
+    loadMessages();
+    
+    // Toggle user select
+    document.querySelectorAll('input[name="target_type"]').forEach(r => {
+        r.addEventListener('change', e => {
+            document.getElementById('user-select-group').classList.toggle('d-none', e.target.value !== 'user');
+        });
+    });
+    
+    document.getElementById('form-send').addEventListener('submit', submitForm);
+});
+
+async function checkAdmin() {
+    const token = localStorage.getItem('token');
+    if (!token) { window.location.href = '/login?redirect=/admin/mensagens'; return; }
+    try {
+        const r = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!r.ok) { window.location.href = '/login?redirect=/admin/mensagens'; return; }
+        const u = await r.json();
+        if (!u.is_admin) {
+            showToast('Acesso Negado', 'Apenas administradores', 'danger');
+            window.location.href = '/';
+        }
+    } catch { window.location.href = '/login?redirect=/admin/mensagens'; }
+}
+
+async function loadUsers() {
+    const token = localStorage.getItem('token');
+    try {
+        const r = await fetch('/api/admin/users', { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!r.ok) return;
+        const users = await r.json();
+        const sel = document.getElementById('target-user-id');
+        sel.innerHTML = '<option value="">-- selecione --</option>' + users.map(u =>
+            `<option value="${u.id}">${u.full_name} (${u.email})</option>`
+        ).join('');
+    } catch (e) { console.error(e); }
+}
+
+async function loadAutomatic() {
+    const token = localStorage.getItem('token');
+    try {
+        const r = await fetch('/api/messages/automatic', { headers: { 'Authorization': `Bearer ${token}` } });
+        const jobs = await r.json();
+        const container = document.getElementById('automatic-list');
+        container.innerHTML = jobs.map(j => {
+            const icon = j.type === 'reminder' ? 'bell' : j.type === 'round' ? 'flag' : 'gear';
+            const color = j.type === 'reminder' ? 'warning' : j.type === 'round' ? 'success' : 'secondary';
+            return `
+                <div class="col-md-6 col-xl-4">
+                    <div class="card h-100 shadow-sm border-${color}">
+                        <div class="card-body">
+                            <div class="d-flex align-items-start mb-2">
+                                <div class="rounded-circle bg-${color} text-white d-flex align-items-center justify-content-center me-3" style="width:42px;height:42px;flex-shrink:0;">
+                                    <i class="bi bi-${icon} fs-5"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-0 fw-bold">${j.name}</h6>
+                                    <span class="badge bg-${color}-subtle text-${color}-emphasis mt-1">${j.channel}</span>
+                                </div>
+                            </div>
+                            <p class="text-muted small mb-2">${j.description}</p>
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-clock me-1 text-muted"></i>
+                                <small class="fw-bold">${j.schedule}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (e) { console.error(e); }
+}
+
+async function loadMessages() {
+    const token = localStorage.getItem('token');
+    try {
+        const r = await fetch('/api/messages/', { headers: { 'Authorization': `Bearer ${token}` } });
+        allMessages = await r.json();
+        renderScheduled();
+        renderHistory();
+    } catch (e) { console.error(e); }
+}
+
+function renderScheduled() {
+    const tbody = document.getElementById('scheduled-tbody');
+    const list = allMessages.filter(m => m.status === 'scheduled' || (m.status === 'pending' && m.scheduled_at));
+    if (!list.length) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">Nenhuma mensagem agendada</td></tr>';
+        return;
+    }
+    tbody.innerHTML = list.map(m => `
+        <tr>
+            <td>${m.id}</td>
+            <td><strong>${escapeHtml(m.subject)}</strong></td>
+            <td>${channelBadge(m.channel)}</td>
+            <td>${targetLabel(m)}</td>
+            <td>${m.scheduled_at ? formatDateTimeBR(m.scheduled_at) : '-'}</td>
+            <td>${m.recurrence ? `<span class="badge bg-info">${recurrenceLabel(m.recurrence)}</span>` : '-'}</td>
+            <td>${m.next_run ? formatDateTimeBR(m.next_run) : '-'}</td>
+            <td>${statusBadge(m.status)}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" onclick="viewMessage(${m.id})" title="Ver"><i class="bi bi-eye"></i></button>
+                <button class="btn btn-sm btn-outline-danger" onclick="cancelMessage(${m.id})" title="Cancelar"><i class="bi bi-x-circle"></i></button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function renderHistory() {
+    const tbody = document.getElementById('history-tbody');
+    const list = allMessages.filter(m => m.sent_at);
+    if (!list.length) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">Nenhuma mensagem enviada</td></tr>';
+        return;
+    }
+    tbody.innerHTML = list.map(m => `
+        <tr>
+            <td>${m.id}</td>
+            <td><strong>${escapeHtml(m.subject)}</strong></td>
+            <td>${channelBadge(m.channel)}</td>
+            <td>${targetLabel(m)}</td>
+            <td>${formatDateTimeBR(m.sent_at)}</td>
+            <td><span class="badge bg-success">${m.sent_count}</span></td>
+            <td><span class="badge bg-${m.failed_count > 0 ? 'danger' : 'light text-dark'}">${m.failed_count}</span></td>
+            <td>${statusBadge(m.status)}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" onclick="viewMessage(${m.id})" title="Ver"><i class="bi bi-eye"></i></button>
+                <button class="btn btn-sm btn-outline-success" onclick="resendMessage(${m.id})" title="Reenviar"><i class="bi bi-arrow-repeat"></i></button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function channelBadge(ch) {
+    const map = {
+        'email': '<span class="badge bg-primary"><i class="bi bi-envelope"></i> Email</span>',
+        'whatsapp': '<span class="badge bg-success"><i class="bi bi-whatsapp"></i> WhatsApp</span>',
+        'both': '<span class="badge bg-info"><i class="bi bi-broadcast"></i> Ambos</span>'
+    };
+    return map[ch] || ch;
+}
+
+function targetLabel(m) {
+    if (m.target_type === 'user') return `<span class="badge bg-secondary">${escapeHtml(m.target_name || 'Usuário')}</span>`;
+    if (m.target_type === 'active') return '<span class="badge bg-success">Ativos</span>';
+    return '<span class="badge bg-dark">Todos</span>';
+}
+
+function statusBadge(s) {
+    const map = {
+        'pending': '<span class="badge bg-warning text-dark">Pendente</span>',
+        'scheduled': '<span class="badge bg-info">Agendada</span>',
+        'sent': '<span class="badge bg-success">Enviada</span>',
+        'partial': '<span class="badge bg-warning text-dark">Parcial</span>',
+        'failed': '<span class="badge bg-danger">Falhou</span>',
+        'cancelled': '<span class="badge bg-secondary">Cancelada</span>'
+    };
+    return map[s] || s;
+}
+
+function recurrenceLabel(r) {
+    return { daily: 'Diária', weekly: 'Semanal', monthly: 'Mensal' }[r] || r;
+}
+
+function escapeHtml(t) {
+    if (!t) return '';
+    return String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function viewMessage(id) {
+    const m = allMessages.find(x => x.id === id);
+    if (!m) return;
+    document.getElementById('view-content').innerHTML = `
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Assunto</dt><dd class="col-sm-9">${escapeHtml(m.subject)}</dd>
+            <dt class="col-sm-3">Canal</dt><dd class="col-sm-9">${channelBadge(m.channel)}</dd>
+            <dt class="col-sm-3">Destino</dt><dd class="col-sm-9">${targetLabel(m)}</dd>
+            <dt class="col-sm-3">Status</dt><dd class="col-sm-9">${statusBadge(m.status)}</dd>
+            ${m.scheduled_at ? `<dt class="col-sm-3">Agendado para</dt><dd class="col-sm-9">${formatDateTimeBR(m.scheduled_at)}</dd>` : ''}
+            ${m.sent_at ? `<dt class="col-sm-3">Enviado em</dt><dd class="col-sm-9">${formatDateTimeBR(m.sent_at)}</dd>` : ''}
+            ${m.recurrence ? `<dt class="col-sm-3">Recorrência</dt><dd class="col-sm-9">${recurrenceLabel(m.recurrence)}</dd>` : ''}
+            ${m.sent_at ? `<dt class="col-sm-3">Enviadas</dt><dd class="col-sm-9">${m.sent_count} / Falhas: ${m.failed_count}</dd>` : ''}
+        </dl>
+        <hr>
+        <h6 class="fw-bold">Mensagem:</h6>
+        <div class="border rounded p-3 bg-light" style="white-space:pre-wrap;">${escapeHtml(m.message)}</div>
+    `;
+    viewModal.show();
+}
+
+async function cancelMessage(id) {
+    if (!confirm('Cancelar esta mensagem agendada?')) return;
+    const token = localStorage.getItem('token');
+    try {
+        const r = await fetch(`/api/messages/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (r.ok) {
+            showToast('Sucesso', 'Mensagem cancelada', 'success');
+            loadMessages();
+        } else {
+            const e = await r.json();
+            showToast('Erro', e.detail || 'Erro ao cancelar', 'danger');
+        }
+    } catch { showToast('Erro', 'Erro de conexão', 'danger'); }
+}
+
+async function resendMessage(id) {
+    if (!confirm('Reenviar esta mensagem agora?')) return;
+    const token = localStorage.getItem('token');
+    try {
+        const r = await fetch(`/api/messages/${id}/resend`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await r.json();
+        if (r.ok) {
+            showToast('Sucesso', `Enviadas: ${data.sent} / Falhas: ${data.failed}`, 'success');
+            loadMessages();
+        } else {
+            showToast('Erro', data.detail || 'Erro ao reenviar', 'danger');
+        }
+    } catch { showToast('Erro', 'Erro de conexão', 'danger'); }
+}
+
+async function submitForm(e) {
+    e.preventDefault();
+    const token = localStorage.getItem('token');
+    
+    const targetType = document.querySelector('input[name="target_type"]:checked').value;
+    const targetUserId = targetType === 'user' ? parseInt(document.getElementById('target-user-id').value) : null;
+    if (targetType === 'user' && !targetUserId) {
+        showToast('Erro', 'Selecione o usuário', 'danger');
+        return;
+    }
+    
+    const scheduledLocal = document.getElementById('scheduled_at').value;
+    let scheduledAt = null;
+    if (scheduledLocal) {
+        // datetime-local is in local time. Convert to ISO without timezone (backend treats as UTC, but we send local-as-iso).
+        // To preserve user's local intention, convert to UTC ISO.
+        const dt = new Date(scheduledLocal);
+        scheduledAt = dt.toISOString();
+    }
+    
+    const data = {
+        subject: document.getElementById('subject').value.trim(),
+        message: document.getElementById('message').value.trim(),
+        channel: document.getElementById('channel').value,
+        target_type: targetType,
+        target_user_id: targetUserId,
+        scheduled_at: scheduledAt,
+        recurrence: document.getElementById('recurrence').value || null
+    };
+    
+    if (!data.subject || !data.message) {
+        showToast('Erro', 'Preencha assunto e mensagem', 'danger');
+        return;
+    }
+    
+    try {
+        const r = await fetch('/api/messages/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify(data)
+        });
+        const result = await r.json();
+        if (r.ok) {
+            if (result.sent !== undefined) {
+                showToast('Enviada', `Enviadas: ${result.sent} / Falhas: ${result.failed} / Total: ${result.total}`, 'success');
+            } else {
+                showToast('Agendada', `Mensagem agendada para ${formatDateTimeBR(result.scheduled_at)}`, 'success');
+            }
+            resetForm();
+            loadMessages();
+        } else {
+            showToast('Erro', result.detail || 'Erro ao processar', 'danger');
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('Erro', 'Erro de conexão', 'danger');
+    }
+}
+
+function resetForm() {
+    document.getElementById('form-send').reset();
+    document.getElementById('user-select-group').classList.add('d-none');
+}
+
+function useTemplate(key) {
+    const templates = {
+        reminder: {
+            subject: 'Lembrete: Faça seus palpites!',
+            message: 'Olá!\n\nNão esqueça de fazer seus palpites para os próximos jogos. Os palpites se encerram 10 minutos antes do início de cada partida.\n\nBoa sorte! ⚽🏆'
+        },
+        payment: {
+            subject: 'Pagamento pendente - Bolão Copa 2026',
+            message: 'Olá!\n\nIdentificamos que você ainda tem pagamentos pendentes no Bolão Copa 2026. Para continuar participando e palpitando, regularize sua situação.\n\nQualquer dúvida entre em contato com a administração.'
+        },
+        round_start: {
+            subject: 'Nova rodada começou!',
+            message: '🏆 Uma nova rodada começou no Bolão Copa 2026!\n\nAcesse a plataforma e faça seus palpites o quanto antes. Quem palpita primeiro tem mais tempo para analisar!\n\nBoa sorte! ⚽'
+        },
+        announcement: {
+            subject: 'Aviso importante - Bolão Copa 2026',
+            message: 'Olá pessoal!\n\n[Escreva aqui o seu aviso]\n\nObrigado pela atenção.'
+        },
+        rules: {
+            subject: 'Regras do Bolão Copa 2026',
+            message: '📋 *Regras do Bolão Copa 2026:*\n\n• Palpites até 10 min antes do jogo\n• Acertar resultado: 2 pontos\n• Acertar gols de cada time: 2 pontos cada (4 total)\n• Bônus por placar exato: 2 pontos\n• Máximo de 8 pontos por jogo\n• Prêmios por rodada\n• Pagamento obrigatório para participar\n\nBoa sorte! ⚽🏆'
+        }
+    };
+    const t = templates[key];
+    if (!t) return;
+    document.getElementById('subject').value = t.subject;
+    document.getElementById('message').value = t.message;
+    document.querySelector('[data-bs-target="#pane-send"]').click();
+}
+</script>
+{% endblock %}

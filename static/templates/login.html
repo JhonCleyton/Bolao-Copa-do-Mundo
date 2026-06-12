@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Bolão Copa 2026{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white text-center">
+                <h4 class="mb-0"><i class="bi bi-box-arrow-in-right me-2"></i>Login</h4>
+            </div>
+            <div class="card-body p-4">
+                <form id="login-form-page">
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                            <input type="email" class="form-control" id="email" required 
+                                   placeholder="seu@email.com">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Senha</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                            <input type="password" class="form-control" id="password" required
+                                   placeholder="Sua senha">
+                        </div>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="remember">
+                        <label class="form-check-label" for="remember">Lembrar-me</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-box-arrow-in-right me-2"></i>Entrar
+                    </button>
+                </form>
+                
+                <hr class="my-4">
+                
+                <div class="text-center">
+                    <p class="mb-2">Não tem uma conta?</p>
+                    <a href="/cadastro" class="btn btn-outline-primary w-100">
+                        <i class="bi bi-person-plus me-2"></i>Cadastre-se
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mt-3">
+            <a href="/" class="text-decoration-none">
+                <i class="bi bi-arrow-left me-1"></i>Voltar para página inicial
+            </a>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('login-form-page').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData();
+    formData.append('username', document.getElementById('email').value);
+    formData.append('password', document.getElementById('password').value);
+    
+    try {
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            localStorage.setItem('token', data.access_token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            
+            // Redirect
+            const urlParams = new URLSearchParams(window.location.search);
+            const redirect = urlParams.get('redirect') || '/dashboard';
+            window.location.href = redirect;
+        } else {
+            showToast('Erro', data.detail || 'Email ou senha incorretos', 'danger');
+        }
+    } catch (error) {
+        showToast('Erro', 'Erro de conexão', 'danger');
+    }
+});
+</script>
+{% endblock %}

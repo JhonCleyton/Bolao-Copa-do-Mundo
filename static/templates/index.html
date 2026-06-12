@@ -1,0 +1,689 @@
+{% extends "base.html" %}
+
+{% block title %}Início - Bolão Copa 2026{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Hero Carousel */
+.hero-carousel {
+    position: relative;
+    height: 560px;
+    overflow: hidden;
+    margin-bottom: 0;
+}
+
+.hero-carousel-item {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transition: opacity 1s ease-in-out;
+    background-size: cover;
+    background-position: center;
+}
+
+.hero-carousel-item.active {
+    opacity: 1;
+}
+
+.hero-carousel-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, rgba(30,60,114,0.9) 0%, rgba(42,82,152,0.8) 50%, rgba(30,60,114,0.9) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hero-content {
+    text-align: center;
+    color: white;
+    max-width: 800px;
+    padding: 40px;
+}
+
+.hero-title {
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-weight: 900;
+    margin-bottom: 20px;
+    text-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    letter-spacing: -1.5px;
+}
+
+.hero-subtitle {
+    font-size: 1.5rem;
+    margin-bottom: 30px;
+    opacity: 0.95;
+}
+
+.hero-cta {
+    margin-top: 30px;
+}
+
+.hero-cta .btn {
+    padding: 15px 40px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 50px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.3s ease;
+}
+
+.hero-cta .btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+/* Carousel Indicators */
+.carousel-indicators {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 10;
+}
+
+.carousel-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.5);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.carousel-indicator.active {
+    background: #ffc107;
+    transform: scale(1.2);
+}
+
+/* Stats Section */
+.stats-section {
+    background: linear-gradient(135deg, var(--copa-blue-dark) 0%, var(--copa-blue) 100%);
+    padding: 3rem 0;
+    color: white;
+}
+
+.stats-card {
+    text-align: center;
+    padding: 20px;
+}
+
+.stats-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #ffc107;
+    margin-bottom: 10px;
+}
+
+.stats-label {
+    font-size: 1rem;
+    opacity: 0.9;
+}
+
+/* Features Section */
+.features-section {
+    padding: 4rem 0;
+    background: #fff;
+}
+
+.section-title {
+    text-align: center;
+    margin-bottom: 50px;
+}
+
+.section-title h2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #1e3c72;
+    margin-bottom: 15px;
+}
+
+.section-title p {
+    font-size: 1.1rem;
+    color: #666;
+}
+
+.feature-card {
+    background: white;
+    border-radius: 22px;
+    padding: 2.5rem 1.75rem;
+    text-align: center;
+    box-shadow: 0 12px 32px rgba(9, 36, 85, 0.08);
+    transition: all 0.3s ease;
+    height: 100%;
+    border: 1px solid rgba(11, 61, 145, 0.06);
+}
+
+.feature-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 48px rgba(9, 36, 85, 0.14);
+}
+
+.feature-icon {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 25px;
+    font-size: 2.5rem;
+    color: white;
+}
+
+.feature-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #1e3c72;
+    margin-bottom: 15px;
+}
+
+.feature-text {
+    color: #666;
+    line-height: 1.6;
+}
+
+/* Prize Section */
+.prize-section {
+    background: linear-gradient(135deg, var(--copa-yellow) 0%, #ff9800 100%);
+    padding: 4rem 0;
+    text-align: center;
+    color: var(--copa-blue-dark);
+}
+
+.prize-title {
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 30px;
+}
+
+.prize-amount {
+    font-size: 4rem;
+    font-weight: 800;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+}
+
+.prize-label {
+    font-size: 1.2rem;
+    opacity: 0.9;
+}
+
+/* Countdown Section */
+.countdown-section {
+    background: linear-gradient(135deg, var(--copa-green) 0%, #00c853 100%);
+    padding: 3rem 0;
+    text-align: center;
+    color: white;
+}
+
+.countdown-title {
+    font-size: 1.5rem;
+    margin-bottom: 30px;
+    font-weight: 600;
+}
+
+.countdown-timer {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    flex-wrap: wrap;
+}
+
+.countdown-item {
+    background: rgba(255,255,255,0.2);
+    border-radius: 10px;
+    padding: 20px 30px;
+    min-width: 100px;
+}
+
+.countdown-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    display: block;
+}
+
+.countdown-label {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+/* Matches Section */
+.matches-section {
+    margin-bottom: 2rem;
+}
+
+.matches-header {
+    background: linear-gradient(135deg, var(--copa-blue) 0%, var(--copa-blue-dark) 100%);
+    color: white;
+    padding: 1.1rem 1.5rem;
+    border-radius: 22px 22px 0 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+}
+
+.matches-body {
+    background: white;
+    border-radius: 0 0 22px 22px;
+    box-shadow: 0 12px 32px rgba(9, 36, 85, 0.1);
+    padding: 1.5rem;
+}
+
+/* Live Badge */
+.live-badge {
+    background: #dc3545;
+    color: white;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .hero-carousel {
+        height: 400px;
+    }
+    
+    .hero-title {
+        font-size: 2rem;
+    }
+    
+    .hero-subtitle {
+        font-size: 1rem;
+    }
+    
+    .countdown-timer {
+        gap: 15px;
+    }
+    
+    .countdown-item {
+        padding: 15px 20px;
+        min-width: 70px;
+    }
+    
+    .countdown-number {
+        font-size: 1.8rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero Carousel -->
+<div class="hero-carousel" id="hero-carousel">
+    {% if carousel_images %}
+        {% for image in carousel_images %}
+        <div class="hero-carousel-item {% if loop.first %}active{% endif %}" style="background-image: url('{{ image.image_url }}');">
+            <div class="hero-carousel-overlay">
+                <div class="hero-content">
+                    <h1 class="hero-title">{{ image.title or "⚽ Bolão Copa 2026" }}</h1>
+                    <p class="hero-subtitle">{{ image.subtitle or "O Maior Bolão do Brasil!" }}</p>
+                    {% if image.button_text %}
+                    <div class="hero-cta">
+                        <a href="{{ image.button_link or '/cadastro' }}" class="btn btn-warning btn-lg">{{ image.button_text }}</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="hero-carousel-item active" style="background-image: url('/static/images/hero-bg.jpg');">
+        <div class="hero-carousel-overlay">
+            <div class="hero-content">
+                <h1 class="hero-title">⚽ Bolão Copa 2026</h1>
+                <p class="hero-subtitle">O Maior Bolão do Brasil!<br>Participe da emoção da Copa do Mundo 2026</p>
+                <div class="hero-cta">
+                    <a href="/cadastro" class="btn btn-warning btn-lg me-3">Cadastre-se Agora</a>
+                    <a href="/como-funciona" class="btn btn-outline-light btn-lg">Como Funciona</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Carousel Indicators -->
+    <div class="carousel-indicators">
+        {% if carousel_images %}
+            {% for image in carousel_images %}
+            <div class="carousel-indicator {% if loop.first %}active{% endif %}" data-slide="{{ loop.index0 }}"></div>
+            {% endfor %}
+        {% else %}
+            <div class="carousel-indicator active" data-slide="0"></div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Stats Section -->
+<div class="stats-section">
+    <div class="container-fluid px-4 px-lg-5">
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="stat-card-copa stat-blue">
+                    <div class="stat-number">R$ 100</div>
+                    <div class="stat-label">Inscrição Única</div>
+                    <i class="bi bi-ticket-perforated stat-icon"></i>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card-copa stat-yellow">
+                    <div class="stat-number">R$ 10</div>
+                    <div class="stat-label">Por Rodada</div>
+                    <i class="bi bi-calendar-week stat-icon"></i>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card-copa stat-green">
+                    <div class="stat-number">R$ 100+</div>
+                    <div class="stat-label">Prêmio por Rodada</div>
+                    <i class="bi bi-trophy stat-icon"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Countdown Section -->
+{% if config and config.show_countdown %}
+<div class="countdown-section" id="countdown-section">
+    <div class="container-fluid px-4 px-lg-5">
+        <h3 class="fw-bold mb-4" style="font-size: 1.5rem;"><i class="bi bi-hourglass-split me-2"></i>Contagem Regressiva para a Copa 2026</h3>
+    <div class="countdown-timer" id="countdown-timer">
+        <div class="countdown-item">
+            <span class="countdown-number" id="countdown-days">000</span>
+            <span class="countdown-label">Dias</span>
+        </div>
+        <div class="countdown-item">
+            <span class="countdown-number" id="countdown-hours">00</span>
+            <span class="countdown-label">Horas</span>
+        </div>
+        <div class="countdown-item">
+            <span class="countdown-number" id="countdown-minutes">00</span>
+            <span class="countdown-label">Minutos</span>
+        </div>
+        <div class="countdown-item">
+            <span class="countdown-number" id="countdown-seconds">00</span>
+            <span class="countdown-label">Segundos</span>
+        </div>
+    </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Features Section -->
+{% if config and config.show_features %}
+<div class="features-section">
+    <div class="container-fluid px-4 px-lg-5">
+        <div class="section-header-copa justify-content-center mb-5">
+            <i class="bi bi-bullseye"></i>
+            <h2>Por que Participar?</h2>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon">🏆</div>
+                    <h3 class="feature-title">Prêmios Incríveis</h3>
+                    <p class="feature-text">Ganhe prêmios em todas as rodadas! O valor do prêmio aumenta conforme mais jogadores participam.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3 class="feature-title">Ranking em Tempo Real</h3>
+                    <p class="feature-text">Acompanhe sua posição no ranking geral e por rodada. Compita com amigos e mostre suas habilidades!</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon">👁️</div>
+                    <h3 class="feature-title">Total Transparência</h3>
+                    <p class="feature-text">Veja todos os palpites de todos os jogadores após os jogos. Sistema 100% transparente!</p>
+                </div>
+            </div>
+        </div>
+        <div class="row g-4 mt-2">
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon">📱</div>
+                    <h3 class="feature-title">Notificações por WhatsApp</h3>
+                    <p class="feature-text">Receba alertas de jogos ao vivo, lembretes de palpites e resultado das rodadas no seu WhatsApp.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3 class="feature-title">Palpites até 10min do Jogo</h3>
+                    <p class="feature-text">Você tem até 10 minutos antes do início do jogo para fazer ou alterar seus palpites!</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon">🎁</div>
+                    <h3 class="feature-title">Rodadas Premiadas</h3>
+                    <p class="feature-text">Cada rodada tem seu próprio prêmio! Você pode ganhar em múltiplas rodadas ao longo da Copa.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Prize Section -->
+{% if config and config.show_prize_section %}
+<div class="prize-section">
+    <div class="container-fluid px-4 px-lg-5">
+        <h3 class="fw-bold mb-3" style="font-size: 1.6rem;"><i class="bi bi-trophy me-2"></i>Premiação por Rodada</h3>
+        <div style="font-size: 3.5rem; font-weight: 900; letter-spacing: -2px;">R$ 100,00+</div>
+        <p class="mb-0 mt-2 opacity-75">*O valor pode aumentar conforme mais jogadores participarem!</p>
+    </div>
+</div>
+{% endif %}
+
+<div class="container-fluid px-4 px-lg-5 py-4">
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <!-- Live Matches -->
+            <div class="matches-section" id="live-matches-section" style="display: none;">
+                <div class="matches-header">
+                    <span class="live-badge"><i class="bi bi-broadcast"></i> AO VIVO</span>
+                    <span class="ms-3">Jogos em Andamento</span>
+                </div>
+                <div class="matches-body" id="live-matches"></div>
+            </div>
+
+            <!-- Today's Matches -->
+            <div class="matches-section">
+                <div class="matches-header">
+                    <i class="bi bi-calendar-event me-2"></i>Jogos de Hoje
+                </div>
+                <div class="matches-body" id="today-matches"></div>
+            </div>
+
+            <!-- Upcoming Matches -->
+            <div class="matches-section">
+                <div class="matches-header">
+                    <i class="bi bi-calendar-week me-2"></i>Próximos Jogos
+                </div>
+                <div class="matches-body" id="upcoming-matches"></div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+        <!-- Login Card -->
+        <div class="card mb-4 shadow" id="login-card">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-box-arrow-in-right me-2"></i>Acesse sua Conta
+            </div>
+            <div class="card-body">
+                <form id="login-form">
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="login-email" required placeholder="seu@email.com">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Senha</label>
+                        <input type="password" class="form-control" id="login-password" required placeholder="••••••••">
+                    </div>
+                    <div class="mb-3 d-flex justify-content-between">
+                        <a href="/recuperar-senha" class="text-decoration-none small">Esqueceu a senha?</a>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 mb-3">
+                        <i class="bi bi-box-arrow-in-right me-2"></i>Entrar
+                    </button>
+                </form>
+                <hr>
+                <p class="text-center mb-2">
+                    Não tem conta?
+                </p>
+                <a href="/cadastro" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-person-plus me-2"></i>Cadastre-se Agora
+                </a>
+            </div>
+        </div>
+
+        <!-- User Dashboard (shown when logged in) -->
+        <div class="card mb-4 shadow" id="user-dashboard" style="display: none;">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-person-circle me-2"></i>Meu Painel
+            </div>
+            <div class="card-body">
+                <h5 id="user-name"></h5>
+                <div class="row text-center mt-3">
+                    <div class="col-6">
+                        <h4 id="user-points">0</h4>
+                        <small class="text-muted">Pontos</small>
+                    </div>
+                    <div class="col-6">
+                        <h4 id="user-position">-</h4>
+                        <small class="text-muted">Posição</small>
+                    </div>
+                </div>
+                <hr>
+                <a href="/dashboard" class="btn btn-primary w-100">
+                    <i class="bi bi-speedometer2 me-2"></i>Ver Dashboard
+                </a>
+            </div>
+        </div>
+
+        <!-- General Ranking -->
+        <div class="card shadow">
+            <div class="card-header bg-warning">
+                <i class="bi bi-trophy me-2"></i>🏆 Ranking Geral
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0" id="ranking-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Jogador</th>
+                            <th>Pts</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer">
+                <a href="/ranking" class="btn btn-sm btn-outline-primary w-100">
+                    <i class="bi bi-trophy me-1"></i>Ver Ranking Completo
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Carousel functionality
+let currentSlide = 0;
+let carouselInterval;
+
+function initCarousel() {
+    const items = document.querySelectorAll('.hero-carousel-item');
+    const indicators = document.querySelectorAll('.carousel-indicator');
+    
+    if (items.length <= 1) return;
+    
+    carouselInterval = setInterval(() => {
+        items[currentSlide].classList.remove('active');
+        indicators[currentSlide].classList.remove('active');
+        
+        currentSlide = (currentSlide + 1) % items.length;
+        
+        items[currentSlide].classList.add('active');
+        indicators[currentSlide].classList.add('active');
+    }, 5000);
+    
+    // Click on indicators
+    indicators.forEach((indicator, index) => {
+        indicator.addEventListener('click', () => {
+            clearInterval(carouselInterval);
+            
+            items[currentSlide].classList.remove('active');
+            indicators[currentSlide].classList.remove('active');
+            
+            currentSlide = index;
+            
+            items[currentSlide].classList.add('active');
+            indicators[currentSlide].classList.add('active');
+            
+            initCarousel();
+        });
+    });
+}
+
+// Countdown functionality
+function updateCountdown() {
+    const targetDate = new Date('2026-06-11T00:00:00').getTime(); // Copa 2026 starts
+    const now = new Date().getTime();
+    const distance = targetDate - now;
+    
+    if (distance > 0) {
+        const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+        
+        document.getElementById('countdown-days').textContent = String(days).padStart(3, '0');
+        document.getElementById('countdown-hours').textContent = String(hours).padStart(2, '0');
+        document.getElementById('countdown-minutes').textContent = String(minutes).padStart(2, '0');
+        document.getElementById('countdown-seconds').textContent = String(seconds).padStart(2, '0');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadHomeData();
+    checkAuth();
+    initCarousel();
+    
+    // Start countdown if element exists
+    if (document.getElementById('countdown-timer')) {
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
+    }
+});
+</script>
+{% endblock %}

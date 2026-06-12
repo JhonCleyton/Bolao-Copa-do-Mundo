@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Bolão Copa 2026{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 px-lg-5 py-4">
+    <div class="section-header-copa mb-4">
+        <i class="bi bi-speedometer2"></i>
+        <h2>Meu Dashboard</h2>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="stat-card-copa stat-blue">
+                <div class="stat-number" id="stat-points">0</div>
+                <div class="stat-label">Pontos Totais</div>
+                <i class="bi bi-star-fill stat-icon"></i>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card-copa stat-green">
+                <div class="stat-number" id="stat-position">-</div>
+                <div class="stat-label">Posição Geral</div>
+                <i class="bi bi-trophy-fill stat-icon"></i>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card-copa stat-yellow">
+                <div class="stat-number" id="stat-predictions">0</div>
+                <div class="stat-label">Palpites</div>
+                <i class="bi bi-pencil-square stat-icon"></i>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card-copa stat-red">
+                <div class="stat-number" id="stat-exact">0</div>
+                <div class="stat-label">Placares Exatos</div>
+                <i class="bi bi-bullseye stat-icon"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Next Matches -->
+        <div class="col-lg-8">
+            <div class="card-copa mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-calendar-event me-2"></i>Próximos Jogos</span>
+                    <a href="/palpites" class="btn-copa btn-copa-primary btn-sm">Fazer Palpites</a>
+                </div>
+                <div class="card-body" id="next-matches"></div>
+            </div>
+        </div>
+
+        <!-- Pending Payments -->
+        <div class="col-lg-4">
+            <div class="card-copa mb-4">
+                <div class="card-header" style="background: linear-gradient(135deg, #c0392b, #e74c3c) !important;">
+                    <i class="bi bi-cash-stack me-2"></i>Pagamentos Pendentes
+                </div>
+                <div class="card-body" id="pending-payments"></div>
+            </div>
+
+            <!-- Last Predictions -->
+            <div class="card-copa">
+                <div class="card-header">
+                    <i class="bi bi-clock-history me-2"></i>Últimos Palpites
+                </div>
+                <div class="card-body" id="last-predictions"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Points History -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card-copa">
+                <div class="card-header">
+                    <i class="bi bi-graph-up me-2"></i>Histórico de Pontos por Rodada
+                </div>
+                <div class="card-body">
+                    <canvas id="points-chart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboard();
+});
+
+async function loadDashboard() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = '/login';
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/users/dashboard', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to load dashboard');
+        }
+        
+        const data = await response.json();
+        
+        // Update stats
+        document.getElementById('stat-points').textContent = data.total_points;
+        document.getElementById('stat-position').textContent = data.general_position || '-';
+        document.getElementById('stat-predictions').textContent = data.predictions_made;
+        document.getElementById('stat-exact').textContent = data.exact_scores;
+        
+        // Next matches
+        const matchesHtml = data.next_matches.map(m => `
+            <div class="d-flex justify-content-between align-items-center mb-3 p-2 border rounded">
+                <div>
+                    <small class="text-muted">${formatDateBR(m.match_date)}</small>
+                    <div class="fw-bold">${m.team_a} x ${m.team_b}</div>
+                    <small>${m.city}</small>
+                </div>
+                <a href="/palpites?match=${m.id}" class="btn btn-sm btn-outline-primary">
+                    Palpitar
+                </a>
+            </div>
+        `).join('') || '<p class="text-muted">Nenhum jogo próximo</p>';
+        document.getElementById('next-matches').innerHTML = matchesHtml;
+        
+        // Pending payments
+        const paymentsHtml = data.pending_payments.map(p => `
+            <div class="alert alert-warning">
+                <strong>${p.type === 'registration' ? 'Inscrição' : 'Rodada ' + p.round_number}</strong><br>
+                Valor: R$ ${p.amount.toFixed(2)}
+            </div>
+        `).join('') || '<p class="text-muted mb-0">Nenhum pagamento pendente</p>';
+        document.getElementById('pending-payments').innerHTML = paymentsHtml;
+        
+        // Last predictions
+        const predictionsHtml = data.last_predictions.map(p => `
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                    <div>${p.match.team_a} x ${p.match.team_b}</div>
+                    <small>Palpite: ${p.predicted_score_a} x ${p.predicted_score_b}</small>
+                </div>
+                <span class="badge ${p.points_earned > 0 ? 'bg-success' : 'bg-secondary'}">
+                    ${p.points_earned} pts
+                </span>
+            </div>
+        `).join('') || '<p class="text-muted mb-0">Nenhum palpite ainda</p>';
+        document.getElementById('last-predictions').innerHTML = predictionsHtml;
+        
+    } catch (error) {
+        showToast('Erro', 'Erro ao carregar dashboard', 'danger');
+    }
+}
+</script>
+{% endblock %}

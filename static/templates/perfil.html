@@ -1,0 +1,394 @@
+{% extends "base.html" %}
+
+{% block title %}Meu Perfil - Bolão Copa 2026{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4">Meu Perfil</h2>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Profile Card -->
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-body text-center">
+                <div class="position-relative d-inline-block mb-3">
+                    <img id="avatar-preview" 
+                         src="/static/images/default-avatar.png" 
+                         class="rounded-circle" 
+                         style="width: 150px; height: 150px; object-fit: cover;"
+                         alt="Avatar">
+                    <button class="btn btn-sm btn-primary position-absolute bottom-0 end-0 rounded-circle" 
+                            style="width: 40px; height: 40px;"
+                            onclick="document.getElementById('avatar-input').click()">
+                        <i class="bi bi-camera"></i>
+                    </button>
+                </div>
+                <input type="file" id="avatar-input" class="d-none" accept="image/*" onchange="uploadAvatar()">
+                
+                <h4 id="profile-name">Carregando...</h4>
+                <p class="text-muted" id="profile-email"></p>
+                
+                <div class="d-grid gap-2 mt-3">
+                    <button class="btn btn-outline-primary" onclick="showEditModal()">
+                        <i class="bi bi-pencil me-2"></i>Editar Perfil
+                    </button>
+                    <button class="btn btn-outline-danger" onclick="showPasswordModal()">
+                        <i class="bi bi-key me-2"></i>Alterar Senha
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment Status -->
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <i class="bi bi-cash-stack me-2"></i>Status de Pagamento
+            </div>
+            <div class="card-body" id="payment-status">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats & Activity -->
+    <div class="col-lg-8">
+        <!-- Stats Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3 col-6">
+                <div class="card bg-primary text-white text-center">
+                    <div class="card-body">
+                        <h3 id="stat-total-points">0</h3>
+                        <small>Pontos</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="card bg-success text-white text-center">
+                    <div class="card-body">
+                        <h3 id="stat-rank">-</h3>
+                        <small>Ranking</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="card bg-info text-white text-center">
+                    <div class="card-body">
+                        <h3 id="stat-predictions">0</h3>
+                        <small>Palpites</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="card bg-warning text-center">
+                    <div class="card-body">
+                        <h3 id="stat-exact">0</h3>
+                        <small>Exatos</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- My Predictions -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-list-check me-2"></i>Meus Palpites</span>
+                <a href="/palpites" class="btn btn-sm btn-primary">Fazer Palpites</a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Jogo</th>
+                                <th>Palpite</th>
+                                <th>Resultado</th>
+                                <th>Pontos</th>
+                            </tr>
+                        </thead>
+                        <tbody id="predictions-table">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- My Bio -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-info-circle me-2"></i>Sobre Mim
+            </div>
+            <div class="card-body">
+                <p id="user-bio" class="text-muted">Nenhuma informação adicional.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Profile Modal -->
+<div class="modal fade" id="editProfileModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Editar Perfil</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-profile-form">
+                    <div class="mb-3">
+                        <label class="form-label">Nome Completo</label>
+                        <input type="text" class="form-control" id="edit-name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Telefone (WhatsApp)</label>
+                        <input type="tel" class="form-control" id="edit-phone">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Bio</label>
+                        <textarea class="form-control" id="edit-bio" rows="3" maxlength="200"></textarea>
+                        <small class="text-muted">Máximo 200 caracteres</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveProfile()">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Change Password Modal -->
+<div class="modal fade" id="changePasswordModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Alterar Senha</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="change-password-form">
+                    <div class="mb-3">
+                        <label class="form-label">Senha Atual</label>
+                        <input type="password" class="form-control" id="current-password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nova Senha</label>
+                        <input type="password" class="form-control" id="new-password" minlength="6" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Confirmar Nova Senha</label>
+                        <input type="password" class="form-control" id="confirm-password" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" onclick="changePassword()">Alterar</button>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let editModal, passwordModal;
+
+document.addEventListener('DOMContentLoaded', function() {
+    editModal = new bootstrap.Modal(document.getElementById('editProfileModal'));
+    passwordModal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
+    loadProfile();
+});
+
+async function loadProfile() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = '/login?redirect=/perfil';
+        return;
+    }
+    
+    try {
+        // Load user data
+        const userResponse = await fetch('/api/auth/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!userResponse.ok) throw new Error('Failed to load user');
+        
+        const user = await userResponse.json();
+        document.getElementById('profile-name').textContent = user.full_name;
+        document.getElementById('profile-email').textContent = user.email;
+        
+        if (user.avatar) {
+            document.getElementById('avatar-preview').src = user.avatar;
+        }
+        if (user.bio) {
+            document.getElementById('user-bio').textContent = user.bio;
+        }
+        
+        // Load dashboard stats
+        const dashResponse = await fetch('/api/users/dashboard', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (dashResponse.ok) {
+            const data = await dashResponse.json();
+            document.getElementById('stat-total-points').textContent = data.total_points;
+            document.getElementById('stat-rank').textContent = data.general_position || '-';
+            document.getElementById('stat-predictions').textContent = data.predictions_made;
+            document.getElementById('stat-exact').textContent = data.exact_scores;
+            
+            // Payment status
+            const paymentHtml = data.pending_payments.length > 0 
+                ? data.pending_payments.map(p => `
+                    <div class="alert alert-warning">
+                        <strong>${p.type === 'registration' ? 'Inscrição' : 'Rodada ' + p.round_number}</strong><br>
+                        Valor: R$ ${p.amount.toFixed(2)}
+                    </div>
+                `).join('')
+                : '<div class="alert alert-success">✓ Todos os pagamentos em dia!</div>';
+            document.getElementById('payment-status').innerHTML = paymentHtml;
+            
+            // Predictions table
+            const predictionsHtml = data.last_predictions.map(p => {
+                const result = p.match.status === 'finished' 
+                    ? `${p.match.score_a} x ${p.match.score_b}`
+                    : 'Pendente';
+                return `
+                    <tr>
+                        <td>${p.match.team_a} x ${p.match.team_b}</td>
+                        <td>${p.predicted_score_a} x ${p.predicted_score_b}</td>
+                        <td>${result}</td>
+                        <td>
+                            <span class="badge ${p.points_earned > 0 ? 'bg-success' : 'bg-secondary'}">
+                                ${p.points_earned} pts
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            document.getElementById('predictions-table').innerHTML = predictionsHtml || 
+                '<tr><td colspan="4" class="text-center">Nenhum palpite ainda</td></tr>';
+        }
+    } catch (error) {
+        showToast('Erro', 'Erro ao carregar perfil', 'danger');
+    }
+}
+
+function showEditModal() {
+    const token = localStorage.getItem('token');
+    fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` }})
+        .then(r => r.json())
+        .then(user => {
+            document.getElementById('edit-name').value = user.full_name;
+            document.getElementById('edit-phone').value = user.phone;
+            document.getElementById('edit-bio').value = user.bio || '';
+            editModal.show();
+        });
+}
+
+async function saveProfile() {
+    const token = localStorage.getItem('token');
+    const data = {
+        full_name: document.getElementById('edit-name').value,
+        phone: document.getElementById('edit-phone').value,
+        bio: document.getElementById('edit-bio').value
+    };
+    
+    try {
+        const response = await fetch('/api/users/profile', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            showToast('Sucesso', 'Perfil atualizado!', 'success');
+            editModal.hide();
+            loadProfile();
+        } else {
+            showToast('Erro', 'Erro ao atualizar perfil', 'danger');
+        }
+    } catch (error) {
+        showToast('Erro', 'Erro de conexão', 'danger');
+    }
+}
+
+function showPasswordModal() {
+    passwordModal.show();
+}
+
+async function changePassword() {
+    const current = document.getElementById('current-password').value;
+    const newPass = document.getElementById('new-password').value;
+    const confirm = document.getElementById('confirm-password').value;
+    
+    if (newPass !== confirm) {
+        showToast('Erro', 'Senhas não conferem', 'danger');
+        return;
+    }
+    
+    const token = localStorage.getItem('token');
+    
+    try {
+        const response = await fetch('/api/users/change-password', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ current_password: current, new_password: newPass })
+        });
+        
+        if (response.ok) {
+            showToast('Sucesso', 'Senha alterada!', 'success');
+            passwordModal.hide();
+            document.getElementById('change-password-form').reset();
+        } else {
+            const error = await response.json();
+            showToast('Erro', error.detail || 'Erro ao alterar senha', 'danger');
+        }
+    } catch (error) {
+        showToast('Erro', 'Erro de conexão', 'danger');
+    }
+}
+
+async function uploadAvatar() {
+    const input = document.getElementById('avatar-input');
+    const file = input.files[0];
+    if (!file) return;
+    
+    const formData = new FormData();
+    formData.append('avatar', file);
+    
+    const token = localStorage.getItem('token');
+    
+    try {
+        const response = await fetch('/api/users/avatar', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: formData
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            document.getElementById('avatar-preview').src = data.avatar_url;
+            showToast('Sucesso', 'Foto atualizada!', 'success');
+        } else {
+            showToast('Erro', 'Erro ao upload foto', 'danger');
+        }
+    } catch (error) {
+        showToast('Erro', 'Erro de conexão', 'danger');
+    }
+}
+</script>
+{% endblock %}

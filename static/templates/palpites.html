@@ -1,0 +1,589 @@
+{% extends "base.html" %}
+
+{% block title %}Palpites - Bolão Copa 2026{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/noah.css">
+<style>
+.predictions-page {
+    margin: -1.5rem -0.75rem 0;
+    padding: 2rem 1rem 4rem;
+    background:
+        radial-gradient(circle at 10% 10%, rgba(255, 221, 0, 0.22), transparent 26%),
+        radial-gradient(circle at 90% 12%, rgba(0, 154, 68, 0.22), transparent 24%),
+        linear-gradient(135deg, #06224a 0%, #0b3d91 42%, #00843d 100%);
+    border-radius: 0 0 32px 32px;
+    color: #fff;
+}
+
+.predictions-hero {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 28px;
+    padding: 2rem;
+    background: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.05));
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255,255,255,0.35);
+    backdrop-filter: blur(8px);
+}
+
+.predictions-hero::after {
+    content: "";
+    position: absolute;
+    right: -70px;
+    top: -70px;
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 204, 0, 0.75), rgba(255, 204, 0, 0));
+}
+
+.predictions-title {
+    font-size: clamp(2rem, 5vw, 4rem);
+    font-weight: 900;
+    letter-spacing: -1px;
+    text-shadow: 0 4px 14px rgba(0,0,0,0.3);
+}
+
+.predictions-subtitle {
+    max-width: 760px;
+    color: rgba(255,255,255,0.85);
+    font-size: 1.05rem;
+}
+
+.cup-stat-card {
+    border-radius: 22px;
+    padding: 1rem;
+    background: rgba(255,255,255,0.95);
+    color: #092455;
+    box-shadow: 0 14px 28px rgba(0,0,0,0.18), inset 0 -4px 0 rgba(0,0,0,0.08);
+}
+
+.filters-panel {
+    margin-top: -2rem;
+    border: 1px solid rgba(9,36,85,0.08);
+    border-radius: 24px;
+    background: rgba(255,255,255,0.98);
+    box-shadow: 0 18px 40px rgba(6,34,74,0.16);
+}
+
+.round-tabs {
+    display: flex;
+    gap: 0.75rem;
+    overflow-x: auto;
+    padding-bottom: 0.35rem;
+}
+
+.round-tab {
+    border: 0;
+    border-radius: 999px;
+    padding: 0.7rem 1.15rem;
+    color: #0b3d91;
+    background: linear-gradient(180deg, #fff, #eef5ff);
+    box-shadow: 0 8px 16px rgba(11,61,145,0.12), inset 0 -3px 0 rgba(11,61,145,0.08);
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.round-tab.active {
+    color: #fff;
+    background: linear-gradient(135deg, #009a44, #ffcc00);
+    box-shadow: 0 10px 24px rgba(0,154,68,0.35), inset 0 -3px 0 rgba(0,0,0,0.12);
+}
+
+.round-section {
+    margin-top: 2rem;
+}
+
+.round-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 1rem 1.25rem;
+    border-radius: 24px;
+    background: linear-gradient(135deg, #0b3d91, #06224a);
+    color: #fff;
+    box-shadow: 0 12px 28px rgba(6,34,74,0.22), inset 0 1px 0 rgba(255,255,255,0.25);
+}
+
+.match-card {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+    border: 0;
+    border-radius: 26px;
+    background: linear-gradient(180deg, #ffffff, #f3f7ff);
+    box-shadow: 0 18px 38px rgba(9,36,85,0.18), inset 0 -5px 0 rgba(9,36,85,0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.match-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 24px 52px rgba(9,36,85,0.24), inset 0 -5px 0 rgba(9,36,85,0.08);
+}
+
+.match-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 7px;
+    background: linear-gradient(90deg, #009a44, #ffcc00, #0057b8, #d71920);
+}
+
+.match-card-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem 1rem 0.5rem;
+    color: #51607a;
+}
+
+.team-code {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 58px;
+    height: 58px;
+    border-radius: 18px;
+    color: #fff;
+    background: linear-gradient(135deg, #0b3d91, #009a44);
+    box-shadow: 0 10px 20px rgba(11,61,145,0.25), inset 0 -4px 0 rgba(0,0,0,0.12);
+    font-weight: 900;
+    letter-spacing: 0.5px;
+}
+
+.vs-badge {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #092455;
+    background: linear-gradient(135deg, #ffcc00, #fff3a0);
+    box-shadow: 0 8px 18px rgba(255,204,0,0.35), inset 0 -3px 0 rgba(0,0,0,0.08);
+    font-weight: 900;
+}
+
+.prediction-pill {
+    border-radius: 18px;
+    padding: 0.85rem;
+    background: linear-gradient(135deg, rgba(0,154,68,0.12), rgba(255,204,0,0.16));
+    border: 1px solid rgba(0,154,68,0.16);
+}
+
+.prediction-score {
+    color: #0b3d91;
+    font-size: 1.45rem;
+    font-weight: 900;
+}
+
+.no-prediction {
+    border-radius: 18px;
+    padding: 0.85rem;
+    background: #f4f6fb;
+    border: 1px dashed #b8c2d8;
+    color: #6c7890;
+}
+
+.btn-cup {
+    border: 0;
+    border-radius: 18px;
+    color: #fff;
+    background: linear-gradient(135deg, #009a44, #0b3d91);
+    box-shadow: 0 12px 24px rgba(0,154,68,0.26), inset 0 -4px 0 rgba(0,0,0,0.12);
+    font-weight: 800;
+}
+
+.btn-cup:hover {
+    color: #fff;
+    background: linear-gradient(135deg, #00b853, #0d4fb8);
+}
+
+.status-chip {
+    border-radius: 999px;
+    padding: 0.35rem 0.7rem;
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.status-open {
+    color: #007337;
+    background: rgba(0,154,68,0.12);
+}
+
+.status-locked {
+    color: #7d2530;
+    background: rgba(215,25,32,0.12);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="predictions-page">
+    <div class="container">
+        <section class="predictions-hero">
+            <div class="row align-items-center g-4">
+                <div class="col-lg-8">
+                    <span class="badge bg-warning text-dark mb-3 px-3 py-2 rounded-pill">🏆 Bolão Copa 2026</span>
+                    <h1 class="predictions-title mb-3">Faça seus palpites por rodada</h1>
+                    <p class="predictions-subtitle mb-0">Acompanhe cada partida, veja seus palpites já registrados e ajuste seus placares antes do prazo encerrar.</p>
+                </div>
+                <div class="col-lg-4">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="cup-stat-card text-center">
+                                <h3 id="stat-rounds" class="mb-0">0</h3>
+                                <small>Rodadas</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="cup-stat-card text-center">
+                                <h3 id="stat-predicted" class="mb-0">0</h3>
+                                <small>Meus palpites</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+
+<div class="filters-panel p-3 p-md-4 mb-4">
+    <div class="row g-3 align-items-end">
+        <div class="col-lg-8">
+            <label class="form-label fw-bold text-primary">Rodadas</label>
+            <div class="round-tabs" id="round-tabs"></div>
+        </div>
+        <div class="col-lg-4">
+            <label class="form-label fw-bold text-primary">Filtrar por grupo</label>
+            <select class="form-select" id="group-filter" onchange="renderMatches()">
+                <option value="">Todos os grupos</option>
+                <option value="A">Grupo A</option>
+                <option value="B">Grupo B</option>
+                <option value="C">Grupo C</option>
+                <option value="D">Grupo D</option>
+                <option value="E">Grupo E</option>
+                <option value="F">Grupo F</option>
+                <option value="G">Grupo G</option>
+                <option value="H">Grupo H</option>
+                <option value="I">Grupo I</option>
+                <option value="J">Grupo J</option>
+                <option value="K">Grupo K</option>
+                <option value="L">Grupo L</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<div id="matches-container"></div>
+
+<div class="modal fade" id="predictionModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 24px; overflow: hidden;">
+            <div class="modal-header text-white" style="background: linear-gradient(135deg, #0b3d91, #009a44);">
+                <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Fazer Palpite</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center p-4">
+                <h4 id="modal-match-title" class="fw-bold"></h4>
+                <p class="text-muted" id="modal-match-info"></p>
+                <div class="row justify-content-center align-items-center my-4">
+                    <div class="col-4 text-center">
+                        <h6 id="modal-team-a" class="fw-bold"></h6>
+                        <input type="number" class="form-control form-control-lg text-center fw-bold" id="score-a" min="0" max="20" value="0">
+                    </div>
+                    <div class="col-2 text-center">
+                        <div class="vs-badge mx-auto">x</div>
+                    </div>
+                    <div class="col-4 text-center">
+                        <h6 id="modal-team-b" class="fw-bold"></h6>
+                        <input type="number" class="form-control form-control-lg text-center fw-bold" id="score-b" min="0" max="20" value="0">
+                    </div>
+                </div>
+                <div class="alert alert-info text-start mb-0">
+                    <small><strong>Sistema de Pontuação:</strong></small>
+                    <ul class="mb-0 small">
+                        <li>Acertar vencedor/empate: +2 pts</li>
+                        <li>Acertar gols de cada time: +2 pts cada</li>
+                        <li>Placar exato: +2 pts bônus</li>
+                        <li>Máximo por jogo: 8 pts</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-cup" onclick="submitPrediction()">Salvar Palpite</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentMatchId = null;
+let predictionModal = null;
+let allMatches = [];
+let myPredictions = {};
+let selectedRound = 'all';
+
+// Note: FLAG_IMAGES and getFlagImage are defined in base.html
+
+function escapeJs(value) {
+    return String(value || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    predictionModal = new bootstrap.Modal(document.getElementById('predictionModal'));
+    loadPageData();
+});
+
+async function loadPageData() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = '/login?redirect=/palpites';
+        return;
+    }
+
+    try {
+        const [matchesResponse, predictionsResponse] = await Promise.all([
+            fetch('/api/matches/?status=scheduled', { headers: { 'Authorization': `Bearer ${token}` } }),
+            fetch('/api/predictions/', { headers: { 'Authorization': `Bearer ${token}` } })
+        ]);
+
+        if (!matchesResponse.ok) {
+            showToast('Erro', 'Erro ao carregar jogos', 'danger');
+            return;
+        }
+
+        allMatches = await matchesResponse.json();
+        const predictions = predictionsResponse.ok ? await predictionsResponse.json() : [];
+        myPredictions = predictions.reduce((acc, prediction) => {
+            acc[prediction.match_id] = prediction;
+            return acc;
+        }, {});
+
+        buildRoundTabs();
+        renderMatches();
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const matchId = urlParams.get('match');
+        if (matchId) {
+            const match = allMatches.find(item => String(item.id) === String(matchId));
+            if (match) {
+                selectedRound = String(match.round_number || 'all');
+                buildRoundTabs();
+                renderMatches();
+                openPredictionModal(match.id, match.team_a, match.team_b, match.match_date);
+            }
+        }
+    } catch (error) {
+        showToast('Erro', 'Erro de conexão ao carregar palpites', 'danger');
+    }
+}
+
+function getRounds() {
+    return [...new Set(allMatches.map(match => match.round_number || 1))].sort((a, b) => a - b);
+}
+
+function buildRoundTabs() {
+    const rounds = getRounds();
+    document.getElementById('stat-rounds').textContent = rounds.length;
+    document.getElementById('stat-predicted').textContent = Object.keys(myPredictions).length;
+
+    const tabs = document.getElementById('round-tabs');
+    tabs.innerHTML = `
+        <button class="round-tab ${selectedRound === 'all' ? 'active' : ''}" onclick="selectRound('all')">Todas</button>
+        ${rounds.map(round => `
+            <button class="round-tab ${String(selectedRound) === String(round) ? 'active' : ''}" onclick="selectRound('${round}')">
+                ${round}ª Rodada
+            </button>
+        `).join('')}
+    `;
+}
+
+function selectRound(round) {
+    selectedRound = round;
+    buildRoundTabs();
+    renderMatches();
+}
+
+function renderMatches() {
+    const group = document.getElementById('group-filter').value;
+    const container = document.getElementById('matches-container');
+    let matches = [...allMatches];
+
+    if (selectedRound !== 'all') {
+        matches = matches.filter(match => String(match.round_number || 1) === String(selectedRound));
+    }
+    if (group) {
+        matches = matches.filter(match => match.group === group);
+    }
+
+    if (matches.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <i class="bi bi-calendar-x display-1 text-muted"></i>
+                <p class="text-muted mt-3">Nenhum jogo disponível para este filtro</p>
+            </div>`;
+        return;
+    }
+
+    const grouped = matches.reduce((acc, match) => {
+        const round = match.round_number || 1;
+        acc[round] = acc[round] || [];
+        acc[round].push(match);
+        return acc;
+    }, {});
+
+    container.innerHTML = Object.keys(grouped).sort((a, b) => Number(a) - Number(b)).map(round => `
+        <section class="round-section">
+            <div class="round-header">
+                <div>
+                    <h3 class="mb-0">${round}ª Rodada</h3>
+                    <small>${grouped[round].length} partida(s) disponível(is)</small>
+                </div>
+                <span class="badge bg-warning text-dark rounded-pill px-3 py-2">Palpites até 10 min antes</span>
+            </div>
+            <div class="row g-4">
+                ${grouped[round].map(renderMatchCard).join('')}
+            </div>
+        </section>
+    `).join('');
+}
+
+function renderMatchCard(match) {
+    // Data já está em horário de Brasília, não tratar como UTC
+    const clean = match.match_date.replace('Z', '');
+    const matchDate = new Date(clean);
+    const deadline = new Date(matchDate.getTime() - 10 * 60 * 1000);
+    const canPredict = new Date() < deadline;
+    const prediction = myPredictions[match.id];
+    
+    const flagA = getFlagImage(match.team_a_code, '2.5rem');
+    const flagB = getFlagImage(match.team_b_code, '2.5rem');
+
+    return `
+        <div class="col-md-6 col-xl-4">
+            <div class="match-card">
+                <div class="match-card-header">
+                    <span class="badge text-bg-light">${match.group ? 'Grupo ' + match.group : formatStage(match.stage)}</span>
+                    <span class="status-chip ${canPredict ? 'status-open' : 'status-locked'}">
+                        ${canPredict ? 'Aberto' : 'Bloqueado'}
+                    </span>
+                </div>
+                <div class="card-body text-center p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div class="text-center flex-fill">
+                            <div class="team-flag mb-2">${flagA}</div>
+                            <div class="team-code mx-auto mb-1">${match.team_a_code || match.team_a.slice(0, 3).toUpperCase()}</div>
+                            <div class="fw-bold text-dark">${match.team_a}</div>
+                        </div>
+                        <div class="px-2"><div class="vs-badge">x</div></div>
+                        <div class="text-center flex-fill">
+                            <div class="team-flag mb-2">${flagB}</div>
+                            <div class="team-code mx-auto mb-1">${match.team_b_code || match.team_b.slice(0, 3).toUpperCase()}</div>
+                            <div class="fw-bold text-dark">${match.team_b}</div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-center gap-3 text-muted small mb-3">
+                        <span><i class="bi bi-calendar-event me-1"></i>${formatDateBR(match.match_date)}</span>
+                        <span><i class="bi bi-clock me-1"></i>${match.brasilia_time || formatTimeBR(match.match_date)}</span>
+                    </div>
+                    <p class="text-muted small mb-3"><i class="bi bi-geo-alt me-1"></i>${match.city || 'Local a definir'}</p>
+
+                    ${prediction ? `
+                        <div class="prediction-pill mb-3">
+                            <small class="text-success fw-bold d-block">Meu palpite</small>
+                            <div class="prediction-score">${prediction.predicted_score_a} x ${prediction.predicted_score_b}</div>
+                            <small class="text-muted">Registrado em ${formatDateTimeBR(prediction.created_at)}</small>
+                        </div>
+                    ` : `
+                        <div class="no-prediction mb-3">
+                            <i class="bi bi-pencil-square me-1"></i>Ainda sem palpite
+                        </div>
+                    `}
+
+                    ${canPredict ? `
+                        <button class="btn btn-cup w-100" onclick="openPredictionModal(${match.id}, '${escapeJs(match.team_a)}', '${escapeJs(match.team_b)}', '${match.match_date}')">
+                            <i class="bi bi-${prediction ? 'arrow-repeat' : 'pencil-square'} me-2"></i>${prediction ? 'Alterar Palpite' : 'Fazer Palpite'}
+                        </button>
+                    ` : `
+                        <button class="btn btn-secondary w-100" disabled>
+                            <i class="bi bi-lock me-2"></i>Palpites encerrados
+                        </button>
+                    `}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function formatStage(stage) {
+    const labels = {
+        group_stage: 'Fase de Grupos',
+        round_of_32: '16 avos',
+        round_of_16: 'Oitavas',
+        quarter_final: 'Quartas',
+        semi_final: 'Semifinal',
+        third_place: '3º Lugar',
+        final: 'Final'
+    };
+    return labels[stage] || stage || 'Jogo';
+}
+
+async function openPredictionModal(matchId, teamA, teamB, matchDate) {
+    currentMatchId = matchId;
+    const prediction = myPredictions[matchId];
+
+    document.getElementById('score-a').value = prediction ? prediction.predicted_score_a : 0;
+    document.getElementById('score-b').value = prediction ? prediction.predicted_score_b : 0;
+    document.getElementById('modal-match-title').textContent = `${teamA} x ${teamB}`;
+    document.getElementById('modal-team-a').textContent = teamA;
+    document.getElementById('modal-team-b').textContent = teamB;
+    document.getElementById('modal-match-info').textContent = formatDateTimeBR(matchDate);
+
+    predictionModal.show();
+}
+
+async function submitPrediction() {
+    const token = localStorage.getItem('token');
+    const data = {
+        match_id: currentMatchId,
+        predicted_score_a: parseInt(document.getElementById('score-a').value),
+        predicted_score_b: parseInt(document.getElementById('score-b').value)
+    };
+
+    try {
+        const response = await fetch('/api/predictions/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+        if (response.ok) {
+            myPredictions[result.match_id] = result;
+            showToast('Sucesso', 'Palpite salvo com sucesso!', 'success');
+            predictionModal.hide();
+            buildRoundTabs();
+            renderMatches();
+        } else {
+            showToast('Erro', result.detail || 'Erro ao salvar palpite', 'danger');
+        }
+    } catch (error) {
+        showToast('Erro', 'Erro de conexão', 'danger');
+    }
+}
+</script>
+<script src="/static/js/noah.js"></script>
+{% endblock %}

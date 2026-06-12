@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block title %}Ranking - Bolão Copa 2026{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4">Ranking</h2>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-3 mb-3">
+        <div class="list-group" id="ranking-tabs">
+            <button class="list-group-item list-group-item-action active" 
+                    onclick="showRanking('general')">
+                <i class="bi bi-trophy me-2"></i>Geral
+            </button>
+            <button class="list-group-item list-group-item-action" 
+                    onclick="showRanking('round-1')">
+                <i class="bi bi-1-circle me-2"></i>1ª Rodada
+            </button>
+            <button class="list-group-item list-group-item-action" 
+                    onclick="showRanking('round-2')">
+                <i class="bi bi-2-circle me-2"></i>2ª Rodada
+            </button>
+            <button class="list-group-item list-group-item-action" 
+                    onclick="showRanking('round-3')">
+                <i class="bi bi-3-circle me-2"></i>3ª Rodada
+            </button>
+        </div>
+    </div>
+    
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span id="ranking-title"><i class="bi bi-trophy me-2"></i>Ranking Geral</span>
+                <span class="badge bg-primary" id="total-players">0 jogadores</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th class="text-center">Pos</th>
+                                <th>Jogador</th>
+                                <th class="text-center">Pontos</th>
+                                <th class="text-center">Acertos</th>
+                                <th class="text-center">Exatos</th>
+                                <th class="text-center" id="prize-header">Prêmio</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ranking-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- My Position Card -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <h4>Minha Posição</h4>
+                <div class="row mt-3">
+                    <div class="col-md-3">
+                        <h2 id="my-position">-</h2>
+                        <p>Posição</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h2 id="my-points">0</h2>
+                        <p>Pontos</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h2 id="my-correct">0</h2>
+                        <p>Acertos</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h2 id="my-exact">0</h2>
+                        <p>Placares Exatos</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentRanking = 'general';
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadRanking('general');
+});
+
+function showRanking(type) {
+    // Update active tab
+    document.querySelectorAll('#ranking-tabs .list-group-item').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    // Show/hide prize column
+    document.getElementById('prize-header').style.display = 
+        type === 'general' ? 'none' : 'table-cell';
+    
+    loadRanking(type);
+}
+
+async function loadRanking(type) {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = '/login?redirect=/ranking';
+        return;
+    }
+    
+    let url, title;
+    if (type === 'general') {
+        url = '/api/rankings/general';
+        title = '<i class="bi bi-trophy me-2"></i>Ranking Geral';
+    } else {
+        const round = type.split('-')[1];
+        url = `/api/rankings/round/${round}`;
+        title = `<i class="bi bi-${round}-circle me-2"></i>${round}ª Rodada`;
+    }
+    
+    document.getElementById('ranking-title').innerHTML = title;
+    
+    try {
+        const response = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        const rankings = type === 'general' ? data : data.rankings;
+        
+        document.getElementById('total-players').textContent = 
+            `${rankings.length} jogadores`;
+        
+        const tbody = document.getElementById('ranking-body');
+        
+        if (rankings.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-muted">
+                        <i class="bi bi-inbox display-4"></i>
+                        <p class="mt-2">Ranking ainda não disponível</p>
+                    </td>
+                </tr>`;
+            return;
+        }
+        
+        tbody.innerHTML = rankings.map((r, index) => {
+            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+            const highlightClass = r.user_id === getCurrentUserId() ? 'table-primary' : '';
+            
+            return `
+                <tr class="${highlightClass}">
+                    <td class="text-center fw-bold">
+                        ${medal} ${r.position || index + 1}
+                    </td>
+                    <td>${r.user_name || r.user?.full_name || 'Jogador'}</td>
+                    <td class="text-center fw-bold text-primary">${r.total_points}</td>
+                    <td class="text-center">${r.correct_predictions}</td>
+                    <td class="text-center">${r.exact_scores}</td>
+                    <td class="text-center" style="display: ${type === 'general' ? 'none' : 'table-cell'}">
+                        ${r.prize_won > 0 ? `<span class="badge bg-success">R$ ${r.prize_won.toFixed(2)}</span>` : '-'}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+        
+        // Load my position
+        loadMyPosition(type);
+        
+    } catch (error) {
+        showToast('Erro', 'Erro ao carregar ranking', 'danger');
+    }
+}
+
+async function loadMyPosition(type) {
+    const token = localStorage.getItem('token');
+    
+    try {
+        let url;
+        if (type === 'general') {
+            url = '/api/rankings/me/general';
+        } else {
+            const round = type.split('-')[1];
+            url = `/api/rankings/me/round/${round}`;
+        }
+        
+        const response = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            document.getElementById('my-position').textContent = data.position || '-';
+            document.getElementById('my-points').textContent = data.total_points || 0;
+            document.getElementById('my-correct').textContent = data.correct_predictions || 0;
+            document.getElementById('my-exact').textContent = data.exact_scores || 0;
+        }
+    } catch (error) {
+        console.error('Error loading my position:', error);
+    }
+}
+
+function getCurrentUserId() {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return parseInt(payload.sub);
+    } catch {
+        return null;
+    }
+}
+</script>
+{% endblock %}

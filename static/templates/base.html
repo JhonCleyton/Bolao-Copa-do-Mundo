@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Bolão Copa 2026{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="icon" type="image/png" href="/static/bolao.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-copa">
+        <div class="container-fluid px-4 px-lg-5">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-trophy-fill text-warning"></i>
+                <span>Bolão Copa 2026</span>
+            </a>
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav mx-auto">
+                    <li class="nav-item"><a class="nav-link" href="/"><i class="bi bi-house me-1"></i>Início</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/palpites"><i class="bi bi-pencil-square me-1"></i>Palpites</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/partidas"><i class="bi bi-broadcast me-1"></i>Partidas</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/pvp"><i class="bi bi-lightning-charge me-1"></i>Desafios PVP</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/grupos"><i class="bi bi-grid-3x3 me-1"></i>Grupos</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/ranking"><i class="bi bi-trophy me-1"></i>Ranking</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/transparencia"><i class="bi bi-eye me-1"></i>Transparência</a></li>
+                </ul>
+                <div class="d-flex align-items-center gap-2" id="auth-buttons">
+                    <a href="/login" class="btn-copa btn-copa-outline btn-sm">Entrar</a>
+                    <a href="/cadastro" class="btn-copa btn-copa-primary btn-sm">Cadastrar</a>
+                </div>
+                <div class="d-none" id="user-menu"></div>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer-copa">
+        <div class="container-fluid px-4 px-lg-5">
+            <div class="row align-items-center g-4">
+                <div class="col-md-4 text-center text-md-start">
+                    <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2">
+                        <i class="bi bi-trophy-fill text-warning fs-4"></i>
+                        <span class="fw-bold fs-5">Bolão Copa 2026</span>
+                    </div>
+                    <small class="text-white-50">A emoção da Copa em cada palpite.</small>
+                </div>
+                <div class="col-md-4 text-center">
+                    <small class="text-white-50">&copy; 2026 Bolão Copa 2026. Todos os direitos reservados.</small>
+                </div>
+                <div class="col-md-4 text-center text-md-end">
+                    <small class="text-white-50 d-block mb-2">Desenvolvido por
+                        <a href="https://jhoncleyton.dev" target="_blank" rel="noopener" class="text-info">JC Byte</a>
+                    </small>
+                    <div class="footer-socials">
+                        <a href="https://github.com/JhonCleyton" target="_blank" rel="noopener" title="GitHub"><i class="bi bi-github"></i></a>
+                        <a href="https://www.linkedin.com/in/jhon-freire" target="_blank" rel="noopener" title="LinkedIn"><i class="bi bi-linkedin"></i></a>
+                        <a href="https://www.instagram.com/jhoncleyton.dev" target="_blank" rel="noopener" title="Instagram"><i class="bi bi-instagram"></i></a>
+                        <a href="https://wa.me/5573998547885" target="_blank" rel="noopener" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>
+                        <a href="https://jhoncleyton.dev" target="_blank" rel="noopener" title="Portfólio"><i class="bi bi-globe"></i></a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Toast container -->
+    <div class="toast-container position-fixed top-0 end-0 p-3">
+        <div id="toast" class="toast" role="alert">
+            <div class="toast-header">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong class="me-auto" id="toast-title">Notificação</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toast-message"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    // Helper: formata data já em horário de Brasília (não é UTC)
+    function formatDateBR(dateStr) {
+        if (!dateStr) return '';
+        // Remove Z se existir e trata como horário local de Brasília
+        const clean = dateStr.replace('Z', '');
+        return new Date(clean).toLocaleDateString('pt-BR');
+    }
+    function formatDateTimeBR(dateStr) {
+        if (!dateStr) return '';
+        const clean = dateStr.replace('Z', '');
+        return new Date(clean).toLocaleString('pt-BR');
+    }
+    function formatTimeBR(dateStr) {
+        if (!dateStr) return '';
+        const clean = dateStr.replace('Z', '');
+        return new Date(clean).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // Country flag images mapping (local SVG files)
+    const FLAG_IMAGES = {
+        // Country codes
+        'BRA': 'Brasil.svg', 'ARG': 'Argentina.svg', 'URU': 'Uruguai.svg', 'COL': 'Colombia.svg',
+        'ECU': 'Equador.svg', 'PAR': 'Paraguai.svg', 'MEX': 'Mexico.svg', 'USA': 'Estados_Unidos.svg',
+        'CAN': 'Canada.svg', 'PAN': 'Panamá.svg', 'HAI': 'Haiti.svg',
+        'GER': 'Alemanha.svg', 'FRA': 'Franca.svg', 'ESP': 'Espanha.svg', 'ENG': 'Inglaterra.svg',
+        'POR': 'Portugal.svg', 'NED': 'Holanda.svg', 'BEL': 'Belgica.svg', 'CRO': 'Croacia.svg',
+        'SUI': 'Suica.svg', 'SCO': 'Escócia.svg', 'AUT': 'Áustria.svg', 'CZE': 'Rep.%20tcheca.svg',
+        'TUR': 'Turquia.svg',
+        'MAR': 'Marrocos.svg', 'SEN': 'Senegal.svg', 'TUN': 'Tunisia.svg', 'ALG': 'Argélia.svg',
+        'EGY': 'Egito.svg', 'CMR': 'Cabo_Verde.svg', 'GHA': 'Gana.svg', 'CIV': 'Costa_do_Marfim.svg',
+        'RSA': 'África_do_Sul.svg', 'CPV': 'Cabo_Verde.svg', 'COD': 'RD_Congo.svg',
+        'JPN': 'Japao.svg', 'KOR': 'Coreia_do_Sul.svg', 'KSA': 'Arabia_Saudita.svg', 'IRN': 'Irã.svg',
+        'IRQ': 'Iraque.svg', 'UZB': 'Uzbequistão.svg',
+        'AUS': 'Australia.svg', 'NZL': 'Nova_Zelandia.svg',
+        'QAT': 'Catar.svg',
+        // Country names (Portuguese)
+        'Brasil': 'Brasil.svg', 'Argentina': 'Argentina.svg', 'Uruguai': 'Uruguai.svg', 'Colômbia': 'Colombia.svg',
+        'Equador': 'Equador.svg', 'Paraguai': 'Paraguai.svg', 'México': 'Mexico.svg', 'Estados Unidos': 'Estados_Unidos.svg',
+        'Canadá': 'Canada.svg', 'Panamá': 'Panamá.svg', 'Haiti': 'Haiti.svg',
+        'Alemanha': 'Alemanha.svg', 'França': 'Franca.svg', 'Espanha': 'Espanha.svg', 'Inglaterra': 'Inglaterra.svg',
+        'Portugal': 'Portugal.svg', 'Holanda': 'Holanda.svg', 'Bélgica': 'Belgica.svg', 'Croácia': 'Croacia.svg',
+        'Suíça': 'Suica.svg', 'Escócia': 'Escócia.svg', 'Áustria': 'Áustria.svg', 'República Tcheca': 'Rep.%20tcheca.svg',
+        'Turquia': 'Turquia.svg',
+        'Marrocos': 'Marrocos.svg', 'Senegal': 'Senegal.svg', 'Tunísia': 'Tunisia.svg', 'Argélia': 'Argélia.svg',
+        'Egito': 'Egito.svg', 'Camarões': 'Cabo_Verde.svg', 'Gana': 'Gana.svg', 'Costa do Marfim': 'Costa_do_Marfim.svg',
+        'África do Sul': 'África_do_Sul.svg', 'Cabo Verde': 'Cabo_Verde.svg', 'Rep. Democrática do Congo': 'RD_Congo.svg',
+        'Japão': 'Japao.svg', 'Coreia do Sul': 'Coreia_do_Sul.svg', 'Arábia Saudita': 'Arabia_Saudita.svg', 'Irã': 'Irã.svg',
+        'Iraque': 'Iraque.svg', 'Uzbequistão': 'Uzbequistão.svg',
+        'Austrália': 'Australia.svg', 'Nova Zelândia': 'Nova_Zelandia.svg',
+        'Catar': 'Catar.svg', 'Qatar': 'Catar.svg',
+        'Bósnia e Herzegovina': 'Bósnia.svg', 'Noruega': 'Noruega.svg', 'Jordânia': 'Jordania.svg',
+        'Suécia': 'Suécia.svg', 'RD Congo': 'RD_Congo.svg'
+    };
+
+    function getFlagImage(codeOrName, size = '2rem') {
+        if (!codeOrName) return `<span style="font-size:${size}">🏳️</span>`;
+        
+        const flagFile = FLAG_IMAGES[codeOrName] || FLAG_IMAGES[codeOrName?.trim()] || 
+                         FLAG_IMAGES[codeOrName?.toUpperCase?.()];
+        
+        if (flagFile) {
+            return `<img src="/static/images/flags/${flagFile}" alt="${codeOrName}" style="width:${size}; height:auto; vertical-align:middle;">`;
+        }
+        
+        // Fallback to emoji if no local image
+        return `<span style="font-size:${size}">🏳️</span>`;
+    }
+    </script>
+    <script src="/static/js/app.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
