@@ -8,6 +8,7 @@ from app.database import get_db
 from app.models import Match, MatchStatus, GroupStanding
 from app.schemas import MatchResponse, MatchCreate, MatchUpdateScore
 from app.auth import get_current_user, get_current_admin
+from app.utils.timezone import get_brasilia_now
 
 router = APIRouter()
 
@@ -40,7 +41,7 @@ def get_live_matches(db: Session = Depends(get_db)):
 
 @router.get("/today", response_model=List[MatchResponse])
 def get_todays_matches(db: Session = Depends(get_db)):
-    now = datetime.utcnow()
+    now = get_brasilia_now()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     today_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
     
@@ -83,16 +84,62 @@ def update_score(
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     
+    # Detectar se o jogo está sendo "reaberto" (de finished para outro status)
+    was_finished = match.status == MatchStatus.FINISHED
+    is_reopening = was_finished and score_data.status != MatchStatus.FINISHED
+    
+    if is_reopening:
+        print(f"[REOPEN] Match {match_id} being reopened from finished to {score_data.status}")
+        print(f"[REOPEN] Resetting prediction points and recalculating rankings...")
+        
+        from app.routers.rankings import calculate_round_ranking_internal, calculate_general_ranking_internal
+        from app.models import Prediction
+        
+        # Zerar pontos de todas as previsões deste jogo
+        predictions = db.query(Prediction).filter(Prediction.match_id == match_id).all()
+        total_points_removed = 0
+        for pred in predictions:
+            total_points_removed += pred.points_earned
+            pred.points_earned = 0
+            pred.points_winner = 0
+            pred.points_score_a = 0
+            pred.points_score_b = 0
+            pred.points_exact = 0
+        
+        # Flush para garantir que as mudanças vão para o banco
+        db.flush()
+        print(f"[REOPEN] Reset {len(predictions)} predictions, removed {total_points_removed} total points")
+        
+        # Expirar todos os objetos para forçar re-leitura do banco
+        db.expire_all()
+        
+        # Verificar se os pontos foram realmente zerados
+        verify = db.query(Prediction).filter(Prediction.match_id == match_id).first()
+        if verify:
+            print(f"[REOPEN] Verify: prediction {verify.id} now has {verify.points_earned} points")
+        
+        # Recalcular rankings
+        if match.round_number:
+            round_count = calculate_round_ranking_internal(match.round_number, db)
+            print(f"[REOPEN] Round {match.round_number} ranking recalculated ({round_count} users)")
+        
+        general_count = calculate_general_ranking_internal(db)
+        print(f"[REOPEN] General ranking recalculated ({general_count} users)")
+        
+        # Commit final (os recálculos já fazem commit interno, mas garantimos aqui)
+        db.commit()
+    
+    # Atualizar dados do jogo
     match.score_a = score_data.score_a
     match.score_b = score_data.score_b
     match.status = score_data.status
+    match.penalty_winner = score_data.penalty_winner
     
     db.commit()
     db.refresh(match)
     
-    # If match finished, calculate points and update standings
-    print(f"[DEBUG] Match {match_id} status update: {score_data.status} (type: {type(score_data.status)})")
-    print(f"[DEBUG] MatchStatus.FINISHED: {MatchStatus.FINISHED}")
+    # Se o jogo foi finalizado, calcular pontos e atualizar standings
+    print(f"[DEBUG] Match {match_id} status update: {score_data.status}")
     
     if score_data.status == MatchStatus.FINISHED:
         print(f"[DEBUG] Match {match_id} finished - calculating points and rankings")
@@ -127,8 +174,6 @@ def update_score(
         print(f"[DEBUG] Calculating general ranking")
         general_count = calculate_general_ranking_internal(db)
         print(f"[DEBUG] General ranking calculated: {general_count} users")
-    else:
-        print(f"[DEBUG] Match {match_id} not finished, skipping ranking update")
     
     return match
 

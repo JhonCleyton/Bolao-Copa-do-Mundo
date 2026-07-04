@@ -59,6 +59,12 @@
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
+                    <a href="/admin/palpites" class="btn btn-outline-info">
+                        <i class="bi bi-pencil-square me-2"></i>Palpites e Prazos
+                    </a>
+                    <a href="/admin/16avos" class="btn btn-outline-danger">
+                        <i class="bi bi-trophy me-2"></i>Configurar 16 Avos de Final
+                    </a>
                     <a href="/admin/cobrancas" class="btn btn-outline-warning">
                         <i class="bi bi-cash-coin me-2"></i>Central de Cobrança
                     </a>
@@ -77,8 +83,8 @@
                     <button class="btn btn-outline-info" onclick="sendNotifications()">
                         <i class="bi bi-bell me-2"></i>Enviar Notificações de Teste
                     </button>
-                    <a href="/api/docs" class="btn btn-outline-secondary" target="_blank">
-                        <i class="bi bi-code-square me-2"></i>API Documentation
+                    <a href="/docs" class="btn btn-outline-secondary" target="_blank">
+                        <i class="bi bi-book me-2"></i>Documentação do Sistema
                     </a>
                 </div>
             </div>
@@ -94,17 +100,31 @@
             <div class="card-body">
                 <div class="mb-3">
                     <label class="form-label">Selecionar Jogo</label>
-                    <select class="form-select" id="admin-match-select">
+                    <select class="form-select" id="admin-match-select" onchange="onMatchSelected()">
                         <option value="">Selecione...</option>
                     </select>
                 </div>
-                <div class="row">
+                <div class="row mb-2">
                     <div class="col-6">
-                        <input type="number" class="form-control" id="score-a" placeholder="Time A">
+                        <label class="form-label small text-muted mb-1">Placar 90min - Time A</label>
+                        <input type="number" class="form-control" id="score-a" placeholder="Gols Time A" min="0">
                     </div>
                     <div class="col-6">
-                        <input type="number" class="form-control" id="score-b" placeholder="Time B">
+                        <label class="form-label small text-muted mb-1">Placar 90min - Time B</label>
+                        <input type="number" class="form-control" id="score-b" placeholder="Gols Time B" min="0">
                     </div>
+                </div>
+                <div id="penalty-section" class="d-none mb-2">
+                    <div class="alert alert-warning py-2 mb-2">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        <strong>Fase eliminatória</strong> — se houver empate nos 90 min, selecione quem avançou. <em>Pontos são calculados só pelo placar dos 90 min.</em>
+                    </div>
+                    <label class="form-label">Vencedor (prorrogação / penaltis)</label>
+                    <select class="form-select" id="penalty-winner">
+                        <option value="">Sem necessidade (decidido no tempo normal)</option>
+                        <option value="A" id="penalty-winner-a">Time A avançou</option>
+                        <option value="B" id="penalty-winner-b">Time B avançou</option>
+                    </select>
                 </div>
                 <div class="d-grid gap-2 mt-3">
                     <button class="btn btn-primary" onclick="updateMatchScore()">
@@ -378,6 +398,9 @@ async function loadStats() {
     }
 }
 
+const KNOCKOUT_STAGES = ['round_of_32', 'round_of_16', 'quarter_final', 'semi_final', 'third_place', 'final'];
+let adminMatchesData = {};
+
 async function loadMatches() {
     try {
         const response = await fetch('/api/matches/');
@@ -385,8 +408,10 @@ async function loadMatches() {
         
         const select = document.getElementById('admin-match-select');
         select.innerHTML = '<option value="">Selecione...</option>';
+        adminMatchesData = {};
         
         matches.forEach(m => {
+            adminMatchesData[m.id] = m;
             const option = document.createElement('option');
             option.value = m.id;
             option.textContent = `${m.team_a} x ${m.team_b} - ${formatDateBR(m.match_date)}`;
@@ -394,6 +419,31 @@ async function loadMatches() {
         });
     } catch (error) {
         console.error('Error loading matches:', error);
+    }
+}
+
+function onMatchSelected() {
+    const matchId = document.getElementById('admin-match-select').value;
+    const penaltySection = document.getElementById('penalty-section');
+    document.getElementById('penalty-winner').value = '';
+
+    if (!matchId || !adminMatchesData[matchId]) {
+        penaltySection.classList.add('d-none');
+        return;
+    }
+
+    const m = adminMatchesData[matchId];
+    if (KNOCKOUT_STAGES.includes(m.stage)) {
+        document.getElementById('penalty-winner-a').textContent = `${m.team_a} avançou`;
+        document.getElementById('penalty-winner-b').textContent = `${m.team_b} avançou`;
+        penaltySection.classList.remove('d-none');
+        if (m.penalty_winner) {
+            document.getElementById('penalty-winner').value = m.penalty_winner;
+        }
+        if (m.score_a !== null && m.score_a !== undefined) document.getElementById('score-a').value = m.score_a;
+        if (m.score_b !== null && m.score_b !== undefined) document.getElementById('score-b').value = m.score_b;
+    } else {
+        penaltySection.classList.add('d-none');
     }
 }
 
@@ -502,7 +552,23 @@ async function finishMatch() {
         return;
     }
     
+    const m = adminMatchesData[matchId];
+    const isKnockout = m && KNOCKOUT_STAGES.includes(m.stage);
+    const penaltyWinnerEl = document.getElementById('penalty-winner');
+    const penaltyWinner = penaltyWinnerEl ? penaltyWinnerEl.value : '';
+    
+    if (isKnockout && parseInt(scoreA) === parseInt(scoreB) && !penaltyWinner) {
+        showToast('Atenção', 'Empate nos 90min: selecione quem avançou (prorrogação/penaltis).', 'warning');
+        return;
+    }
+    
     const token = localStorage.getItem('token');
+    const body = {
+        score_a: parseInt(scoreA),
+        score_b: parseInt(scoreB),
+        status: 'finished'
+    };
+    if (penaltyWinner) body.penalty_winner = penaltyWinner;
     
     try {
         const response = await fetch(`/api/matches/${matchId}/score`, {
@@ -511,11 +577,7 @@ async function finishMatch() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({
-                score_a: parseInt(scoreA),
-                score_b: parseInt(scoreB),
-                status: 'finished'
-            })
+            body: JSON.stringify(body)
         });
         
         if (response.ok) {
@@ -523,7 +585,8 @@ async function finishMatch() {
             loadMatches();
             loadStats();
         } else {
-            showToast('Erro', 'Erro ao finalizar jogo', 'danger');
+            const err = await response.json().catch(() => ({}));
+            showToast('Erro', err.detail || 'Erro ao finalizar jogo', 'danger');
         }
     } catch (error) {
         showToast('Erro', 'Erro de conexão', 'danger');

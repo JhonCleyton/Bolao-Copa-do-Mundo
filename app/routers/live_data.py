@@ -12,6 +12,7 @@ from app.database import get_db
 from app.auth import get_current_admin, get_current_user
 from app.models import User, Match
 from app.services.football_api_service import football_api_service
+from app.utils.timezone import get_brasilia_now
 
 router = APIRouter()
 
@@ -56,7 +57,7 @@ def sync_all_live_matches(
     from app.models import MatchStatus
     
     # Get matches that are live or scheduled for today
-    today = datetime.utcnow().date()
+    today = get_brasilia_now().date()
     tomorrow = today + timedelta(days=1)
     
     matches = db.query(Match).filter(
@@ -172,7 +173,7 @@ def get_world_cup_schedule(
     current_user: User = Depends(get_current_user)
 ):
     """Get World Cup 2026 schedule from API"""
-    today = datetime.utcnow().date()
+    today = get_brasilia_now().date()
     date_from = str(today)
     date_to = str(today + timedelta(days=days))
     

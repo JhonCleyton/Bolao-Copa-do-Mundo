@@ -9,6 +9,7 @@ from app.database import get_db
 from app.models import User, Payment
 from app.schemas import UserResponse, PaymentCreate, PaymentResponse
 from app.auth import get_current_user, get_password_hash, verify_password
+from app.utils.timezone import get_brasilia_now
 
 router = APIRouter()
 
@@ -42,7 +43,7 @@ def get_dashboard(current_user: User = Depends(get_current_user), db: Session = 
     ).all()
     
     # Get next matches (not started yet)
-    now = datetime.utcnow()
+    now = get_brasilia_now()
     next_matches = db.query(Match).filter(
         Match.match_date > now,
         Match.status == MatchStatus.SCHEDULED

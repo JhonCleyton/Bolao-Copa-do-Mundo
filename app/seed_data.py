@@ -1,7 +1,7 @@
 from datetime import datetime
 
 # Copa do Mundo 2026 - TODOS os Jogos (Fase de Grupos + Mata-Mata)
-# Fuso horário UTC para match_date, horário de Brasília para exibição
+# match_date armazena o horário de Brasília (UTC-3)
 
 matches_data = [
     # ===== 1ª RODADA =====

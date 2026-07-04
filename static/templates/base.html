@@ -31,6 +31,7 @@
                     <li class="nav-item"><a class="nav-link" href="/grupos"><i class="bi bi-grid-3x3 me-1"></i>Grupos</a></li>
                     <li class="nav-item"><a class="nav-link" href="/ranking"><i class="bi bi-trophy me-1"></i>Ranking</a></li>
                     <li class="nav-item"><a class="nav-link" href="/transparencia"><i class="bi bi-eye me-1"></i>Transparência</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/docs"><i class="bi bi-book me-1"></i>Documentação</a></li>
                 </ul>
                 <div class="d-flex align-items-center gap-2" id="auth-buttons">
                     <a href="/login" class="btn-copa btn-copa-outline btn-sm">Entrar</a>
@@ -57,6 +58,7 @@
                 </div>
                 <div class="col-md-4 text-center">
                     <small class="text-white-50">&copy; 2026 Bolão Copa 2026. Todos os direitos reservados.</small>
+                    <div class="mt-1"><a href="/docs" class="text-white-50 small"><i class="bi bi-book me-1"></i>Documentação do Sistema</a></div>
                 </div>
                 <div class="col-md-4 text-center text-md-end">
                     <small class="text-white-50 d-block mb-2">Desenvolvido por
@@ -88,22 +90,25 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-    // Helper: formata data já em horário de Brasília (não é UTC)
+    // Helper: formata data em horário de Brasília (UTC-3)
     function formatDateBR(dateStr) {
         if (!dateStr) return '';
-        // Remove Z se existir e trata como horário local de Brasília
+        // Remove Z se existir e força timezone de Brasília (UTC-3)
         const clean = dateStr.replace('Z', '');
-        return new Date(clean).toLocaleDateString('pt-BR');
+        const date = new Date(clean + '-03:00');
+        return date.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
     }
     function formatDateTimeBR(dateStr) {
         if (!dateStr) return '';
         const clean = dateStr.replace('Z', '');
-        return new Date(clean).toLocaleString('pt-BR');
+        const date = new Date(clean + '-03:00');
+        return date.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
     }
     function formatTimeBR(dateStr) {
         if (!dateStr) return '';
         const clean = dateStr.replace('Z', '');
-        return new Date(clean).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const date = new Date(clean + '-03:00');
+        return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
     }
 
     // Country flag images mapping (local SVG files)

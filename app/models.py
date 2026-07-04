@@ -82,6 +82,7 @@ class Match(Base):
     team_a_code = Column(String)
     team_b_code = Column(String)
     match_date = Column(DateTime)
+    prediction_deadline = Column(DateTime, nullable=True)  # Override admin: quando setado, palpites permitidos ate esta data/hora
     local_time = Column(String)
     brasilia_time = Column(String)
     city = Column(String)
@@ -89,6 +90,7 @@ class Match(Base):
     status = Column(Enum(MatchStatus), default=MatchStatus.SCHEDULED)
     score_a = Column(Integer, nullable=True)
     score_b = Column(Integer, nullable=True)
+    penalty_winner = Column(String, nullable=True)  # "A" ou "B" - vencedor nos penaltis (mata-mata)
     round_number = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

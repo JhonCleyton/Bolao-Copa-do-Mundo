@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - Fase Eliminatória - Bolão Copa 2026{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 px-lg-5 py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h2 class="mb-0">
+            <i class="bi bi-trophy me-2 text-danger"></i>Configurar Fase Eliminatória
+        </h2>
+        <a href="/admin" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Voltar
+        </a>
+    </div>
+
+    <!-- Seletor de fase -->
+    <div class="mb-3">
+        <div class="btn-group flex-wrap" role="group" aria-label="Selecionar fase">
+            <button type="button" class="btn btn-outline-danger stage-btn active" data-stage="round_of_32" onclick="selectStage('round_of_32')">16 Avos</button>
+            <button type="button" class="btn btn-outline-danger stage-btn" data-stage="round_of_16" onclick="selectStage('round_of_16')">Oitavas</button>
+            <button type="button" class="btn btn-outline-danger stage-btn" data-stage="quarter_final" onclick="selectStage('quarter_final')">Quartas</button>
+            <button type="button" class="btn btn-outline-danger stage-btn" data-stage="semi_final" onclick="selectStage('semi_final')">Semifinais</button>
+            <button type="button" class="btn btn-outline-danger stage-btn" data-stage="third_place" onclick="selectStage('third_place')">3º Lugar</button>
+            <button type="button" class="btn btn-outline-danger stage-btn" data-stage="final" onclick="selectStage('final')">Final</button>
+        </div>
+    </div>
+
+    <div class="alert alert-warning py-2 mb-3">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <strong>Atenção:</strong> Use esta página para corrigir manualmente os confrontos quando o sistema automático errar os times.
+        Altere nome, código, data e local de cada partida conforme necessário.
+    </div>
+
+    <div class="alert alert-info py-2 d-flex align-items-center gap-2 mb-3">
+        <i class="bi bi-info-circle-fill fs-5"></i>
+        <span>
+            <strong>Código do time:</strong> Use siglas de 2-3 letras (ex: BRA, ARG, FRA).
+            <strong>Horário de Brasília</strong> é o referencial usado nos palpites.
+        </span>
+    </div>
+
+    <!-- Barra de carregamento -->
+    <div id="loading-bar" class="text-center py-5">
+        <div class="spinner-border text-danger" role="status"></div>
+        <p class="mt-2 text-muted">Carregando partidas...</p>
+    </div>
+
+    <!-- Cabeçalho com contagem e ações -->
+    <div id="matches-header" class="d-none mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span class="text-muted">
+            <strong id="stage-label-text"></strong> &mdash;
+            <span id="match-count">0</span> partida(s)
+        </span>
+        <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-sm btn-success" onclick="saveAll()">
+                <i class="bi bi-check-all me-1"></i>Salvar Todas as Alterações
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="loadMatches()">
+                <i class="bi bi-arrow-clockwise me-1"></i>Recarregar
+            </button>
+        </div>
+    </div>
+
+    <!-- Grid de partidas -->
+    <div id="matches-grid" class="row g-3 d-none"></div>
+
+    <!-- Toast -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1100;">
+        <div id="feedback-toast" class="toast align-items-center border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body" id="toast-message"></div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const token = localStorage.getItem('token');
+let matchesData = [];
+let pendingChanges = {};
+let currentStage = 'round_of_32';
+
+if (!token) {
+    window.location.href = '/login';
+}
+
+function selectStage(stage) {
+    if (Object.keys(pendingChanges).length > 0) {
+        if (!confirm('Existem alterações não salvas. Deseja descartar e trocar de fase?')) return;
+    }
+    pendingChanges = {};
+    currentStage = stage;
+    document.querySelectorAll('.stage-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.stage === stage);
+    });
+    loadMatches();
+}
+
+async function loadMatches() {
+    document.getElementById('loading-bar').classList.remove('d-none');
+    document.getElementById('matches-grid').classList.add('d-none');
+    document.getElementById('matches-header').classList.add('d-none');
+
+    try {
+        const res = await fetch(`/api/admin/matches/knockout?stage=${currentStage}`, {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (res.status === 401 || res.status === 403) {
+            window.location.href = '/login';
+            return;
+        }
+        if (!res.ok) throw new Error('Erro ao carregar partidas');
+        const data = await res.json();
+        matchesData = data.matches;
+        document.getElementById('stage-label-text').textContent = data.stage_label;
+        renderMatches(matchesData, data.stage_label);
+    } catch (e) {
+        document.getElementById('loading-bar').innerHTML =
+            `<div class="alert alert-danger"><i class="bi bi-x-circle me-2"></i>Erro ao carregar: ${e.message}</div>`;
+    }
+}
+
+function formatDatetimeLocal(isoStr) {
+    if (!isoStr) return '';
+    return isoStr.substring(0, 16);
+}
+
+function flagImg(code) {
+    if (!code || code.length < 2) return '';
+    const cleaned = code.replace(/[^A-Za-z]/g, '').toUpperCase().substring(0, 3);
+    return `<img src="/static/images/${cleaned}.png" width="24" height="16" class="me-1"
+                 onerror="this.style.display='none'" style="object-fit:cover;border-radius:2px;">`;
+}
+
+function scoreBadge(m) {
+    if (m.status !== 'finished' || m.score_a === null || m.score_a === undefined) return '';
+    let txt = `${m.score_a} × ${m.score_b}`;
+    if (m.penalty_winner) {
+        txt += ` <small class="text-warning">(pen: ${m.penalty_winner === 'A' ? m.team_a : m.team_b})</small>`;
+    }
+    return `<span class="badge bg-dark ms-2">${txt}</span>`;
+}
+
+function renderMatches(matches, stageLabel) {
+    const grid = document.getElementById('matches-grid');
+    document.getElementById('match-count').textContent = matches.length;
+
+    if (matches.length === 0) {
+        grid.innerHTML = `<div class="col-12"><div class="alert alert-warning">
+            <i class="bi bi-exclamation-circle me-2"></i>Nenhuma partida de <strong>${stageLabel}</strong> encontrada no banco de dados.
+        </div></div>`;
+        grid.classList.remove('d-none');
+        document.getElementById('loading-bar').classList.add('d-none');
+        document.getElementById('matches-header').classList.remove('d-none');
+        return;
+    }
+
+    grid.innerHTML = matches.map(m => {
+        const statusBadge = m.status === 'finished'
+            ? '<span class="badge bg-secondary">Finalizada</span>'
+            : m.status === 'live'
+            ? '<span class="badge bg-danger">Ao Vivo</span>'
+            : '<span class="badge bg-success">Agendada</span>';
+
+        return `
+        <div class="col-xl-6 col-12">
+            <div class="card h-100 shadow-sm" id="card-${m.id}">
+                <div class="card-header d-flex justify-content-between align-items-center py-2 flex-wrap gap-1">
+                    <span class="fw-bold text-muted small">
+                        <i class="bi bi-hash"></i>${m.match_number}
+                    </span>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        ${statusBadge}
+                        ${scoreBadge(m)}
+                        <span class="badge bg-light text-dark border" id="dirty-badge-${m.id}" style="display:none!important">
+                            <i class="bi bi-pencil-fill text-warning"></i> Não salvo
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body pb-2">
+                    <!-- Times -->
+                    <div class="row g-2 mb-3">
+                        <div class="col-5">
+                            <label class="form-label fw-semibold small mb-1" id="label-a-${m.id}">
+                                ${flagImg(m.team_a_code)} Time A
+                            </label>
+                            <input type="text" class="form-control form-control-sm"
+                                id="team_a-${m.id}" value="${escHtml(m.team_a)}"
+                                placeholder="Nome do time A"
+                                oninput="markDirty(${m.id})">
+                            <input type="text" class="form-control form-control-sm mt-1"
+                                id="team_a_code-${m.id}" value="${escHtml(m.team_a_code)}"
+                                placeholder="Código (ex: BRA)"
+                                maxlength="5"
+                                oninput="markDirty(${m.id}); updateFlag(${m.id}, 'a')">
+                        </div>
+                        <div class="col-2 d-flex align-items-center justify-content-center">
+                            <span class="fw-bold text-muted fs-5">×</span>
+                        </div>
+                        <div class="col-5">
+                            <label class="form-label fw-semibold small mb-1" id="label-b-${m.id}">
+                                ${flagImg(m.team_b_code)} Time B
+                            </label>
+                            <input type="text" class="form-control form-control-sm"
+                                id="team_b-${m.id}" value="${escHtml(m.team_b)}"
+                                placeholder="Nome do time B"
+                                oninput="markDirty(${m.id})">
+                            <input type="text" class="form-control form-control-sm mt-1"
+                                id="team_b_code-${m.id}" value="${escHtml(m.team_b_code)}"
+                                placeholder="Código (ex: ARG)"
+                                maxlength="5"
+                                oninput="markDirty(${m.id}); updateFlag(${m.id}, 'b')">
+                        </div>
+                    </div>
+
+                    <!-- Data e horários -->
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-5">
+                            <label class="form-label small mb-1">
+                                <i class="bi bi-calendar-event me-1"></i>Data/Hora (Brasília)
+                            </label>
+                            <input type="datetime-local" class="form-control form-control-sm"
+                                id="match_date-${m.id}" value="${formatDatetimeLocal(m.match_date)}"
+                                oninput="markDirty(${m.id}); syncBrasiliaTime(${m.id})">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small mb-1">
+                                <i class="bi bi-clock me-1"></i>Hora Local
+                            </label>
+                            <input type="text" class="form-control form-control-sm"
+                                id="local_time-${m.id}" value="${escHtml(m.local_time || '')}"
+                                placeholder="ex: 15:00"
+                                oninput="markDirty(${m.id})">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small mb-1">
+                                <i class="bi bi-clock-history me-1"></i>Hora Brasília
+                            </label>
+                            <input type="text" class="form-control form-control-sm"
+                                id="brasilia_time-${m.id}" value="${escHtml(m.brasilia_time || '')}"
+                                placeholder="ex: 16:00"
+                                oninput="markDirty(${m.id})">
+                        </div>
+                    </div>
+
+                    <!-- Local -->
+                    <div class="row g-2">
+                        <div class="col-md-5">
+                            <label class="form-label small mb-1">
+                                <i class="bi bi-geo-alt me-1"></i>Cidade
+                            </label>
+                            <input type="text" class="form-control form-control-sm"
+                                id="city-${m.id}" value="${escHtml(m.city || '')}"
+                                placeholder="Cidade"
+                                oninput="markDirty(${m.id})">
+                        </div>
+                        <div class="col-md-7">
+                            <label class="form-label small mb-1">
+                                <i class="bi bi-building me-1"></i>Estádio
+                            </label>
+                            <input type="text" class="form-control form-control-sm"
+                                id="stadium-${m.id}" value="${escHtml(m.stadium || '')}"
+                                placeholder="Estádio"
+                                oninput="markDirty(${m.id})">
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer d-flex justify-content-end gap-2 py-2">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="resetCard(${m.id})">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>Desfazer
+                    </button>
+                    <button class="btn btn-sm btn-danger" id="save-btn-${m.id}" onclick="saveMatch(${m.id})">
+                        <i class="bi bi-save me-1"></i>Salvar Partida
+                    </button>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('loading-bar').classList.add('d-none');
+    grid.classList.remove('d-none');
+    document.getElementById('matches-header').classList.remove('d-none');
+}
+
+function escHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function markDirty(matchId) {
+    pendingChanges[matchId] = true;
+    const badge = document.getElementById(`dirty-badge-${matchId}`);
+    if (badge) badge.style.removeProperty('display');
+    const btn = document.getElementById(`save-btn-${matchId}`);
+    if (btn) { btn.classList.remove('btn-danger'); btn.classList.add('btn-warning'); }
+    const card = document.getElementById(`card-${matchId}`);
+    if (card) card.classList.add('border-warning');
+}
+
+function markClean(matchId) {
+    delete pendingChanges[matchId];
+    const badge = document.getElementById(`dirty-badge-${matchId}`);
+    if (badge) badge.style.setProperty('display', 'none', 'important');
+    const btn = document.getElementById(`save-btn-${matchId}`);
+    if (btn) { btn.classList.remove('btn-warning'); btn.classList.add('btn-danger'); }
+    const card = document.getElementById(`card-${matchId}`);
+    if (card) card.classList.remove('border-warning');
+}
+
+function updateFlag(matchId, side) {
+    const code = document.getElementById(`team_${side}_code-${matchId}`).value;
+    const label = document.getElementById(`label-${side}-${matchId}`);
+    if (label) {
+        const cleaned = code.replace(/[^A-Za-z]/g, '').toUpperCase().substring(0, 3);
+        label.innerHTML = cleaned
+            ? `<img src="/static/images/${cleaned}.png" width="24" height="16" class="me-1"
+                    onerror="this.style.display='none'" style="object-fit:cover;border-radius:2px;"> Time ${side.toUpperCase()}`
+            : `Time ${side.toUpperCase()}`;
+    }
+}
+
+function syncBrasiliaTime(matchId) {
+    const dtVal = document.getElementById(`match_date-${matchId}`).value;
+    if (dtVal) {
+        document.getElementById(`brasilia_time-${matchId}`).value = dtVal.substring(11, 16);
+    }
+}
+
+function resetCard(matchId) {
+    const original = matchesData.find(m => m.id === matchId);
+    if (!original) return;
+    document.getElementById(`team_a-${matchId}`).value = original.team_a || '';
+    document.getElementById(`team_b-${matchId}`).value = original.team_b || '';
+    document.getElementById(`team_a_code-${matchId}`).value = original.team_a_code || '';
+    document.getElementById(`team_b_code-${matchId}`).value = original.team_b_code || '';
+    document.getElementById(`match_date-${matchId}`).value = formatDatetimeLocal(original.match_date);
+    document.getElementById(`local_time-${matchId}`).value = original.local_time || '';
+    document.getElementById(`brasilia_time-${matchId}`).value = original.brasilia_time || '';
+    document.getElementById(`city-${matchId}`).value = original.city || '';
+    document.getElementById(`stadium-${matchId}`).value = original.stadium || '';
+    markClean(matchId);
+}
+
+async function saveMatch(matchId) {
+    const btn = document.getElementById(`save-btn-${matchId}`);
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    btn.disabled = true;
+
+    const matchDateVal = document.getElementById(`match_date-${matchId}`).value;
+    const payload = {
+        team_a: document.getElementById(`team_a-${matchId}`).value.trim(),
+        team_b: document.getElementById(`team_b-${matchId}`).value.trim(),
+        team_a_code: document.getElementById(`team_a_code-${matchId}`).value.trim().toUpperCase(),
+        team_b_code: document.getElementById(`team_b_code-${matchId}`).value.trim().toUpperCase(),
+        match_date: matchDateVal ? matchDateVal + ':00' : null,
+        local_time: document.getElementById(`local_time-${matchId}`).value.trim(),
+        brasilia_time: document.getElementById(`brasilia_time-${matchId}`).value.trim(),
+        city: document.getElementById(`city-${matchId}`).value.trim(),
+        stadium: document.getElementById(`stadium-${matchId}`).value.trim(),
+    };
+
+    try {
+        const res = await fetch(`/api/admin/matches/${matchId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Erro ao salvar');
+        }
+
+        const data = await res.json();
+        const idx = matchesData.findIndex(m => m.id === matchId);
+        if (idx !== -1) matchesData[idx] = { ...matchesData[idx], ...data.match };
+
+        markClean(matchId);
+        const mn = matchesData.find(m => m.id === matchId)?.match_number;
+        showToast(`Partida #${mn} salva com sucesso!`, 'success');
+    } catch (e) {
+        showToast(`Erro: ${e.message}`, 'danger');
+    } finally {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    }
+}
+
+async function saveAll() {
+    const dirty = Object.keys(pendingChanges).map(Number);
+    if (dirty.length === 0) {
+        showToast('Nenhuma alteração pendente.', 'info');
+        return;
+    }
+    for (const id of dirty) {
+        await saveMatch(id);
+    }
+    showToast(`${dirty.length} partida(s) salva(s)!`, 'success');
+}
+
+function showToast(msg, type = 'success') {
+    const toast = document.getElementById('feedback-toast');
+    const msgEl = document.getElementById('toast-message');
+    toast.className = `toast align-items-center text-white border-0 bg-${type}`;
+    msgEl.textContent = msg;
+    new bootstrap.Toast(toast, { delay: 4000 }).show();
+}
+
+loadMatches();
+</script>
+{% endblock %}

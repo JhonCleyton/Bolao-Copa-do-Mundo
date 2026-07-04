@@ -1,0 +1,1052 @@
+{% extends "base.html" %}
+{% block title %}Documentação — Bolão Copa 2026{% endblock %}
+{% block content %}
+<style>
+:root { --doc-sidebar-w: 260px; }
+body { scroll-behavior: smooth; }
+.doc-layout { display: flex; gap: 0; min-height: 80vh; }
+.doc-sidebar {
+  width: var(--doc-sidebar-w); flex-shrink: 0;
+  position: sticky; top: 70px; height: calc(100vh - 70px);
+  overflow-y: auto; background: #f8f9fa;
+  border-right: 1px solid #dee2e6; padding: 1rem 0;
+}
+.doc-sidebar .nav-link {
+  font-size: .85rem; color: #495057; padding: .3rem 1.2rem;
+  border-left: 3px solid transparent;
+}
+.doc-sidebar .nav-link:hover, .doc-sidebar .nav-link.active {
+  color: #dc3545; border-left-color: #dc3545; background: rgba(220,53,69,.06);
+}
+.doc-sidebar .nav-category {
+  font-size: .7rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; color: #adb5bd; padding: .8rem 1.2rem .2rem;
+}
+.doc-main { flex: 1; min-width: 0; padding: 2rem 2.5rem; }
+.doc-section { padding-top: 1.5rem; margin-bottom: 2.5rem; }
+.doc-section h2 {
+  font-size: 1.5rem; font-weight: 700; color: #212529;
+  border-bottom: 2px solid #dc3545; padding-bottom: .4rem; margin-bottom: 1.2rem;
+}
+.doc-section h3 { font-size: 1.1rem; font-weight: 600; margin-top: 1.4rem; margin-bottom: .6rem; color: #343a40; }
+.doc-section h4 { font-size: .95rem; font-weight: 600; color: #495057; margin-top: 1rem; }
+.endpoint-badge { font-size: .7rem; font-weight: 700; padding: .25em .55em; border-radius: .25rem; margin-right: .4rem; }
+.method-get  { background:#0d6efd22; color:#0a58ca; }
+.method-post { background:#19875422; color:#146c43; }
+.method-put  { background:#ffc10722; color:#9a6700; }
+.method-delete{ background:#dc354522; color:#b02a37; }
+.endpoint-row { padding: .5rem .75rem; border-left: 3px solid #dee2e6; margin-bottom: .4rem; background: #f8f9fa; border-radius: 0 .3rem .3rem 0; }
+.endpoint-row:hover { border-left-color: #dc3545; }
+.field-table th { font-size: .8rem; background: #f1f3f5; }
+.field-table td { font-size: .82rem; vertical-align: middle; }
+.field-table code { font-size: .8rem; }
+.auth-badge { display:inline-block; padding:.2em .5em; border-radius:.25rem; font-size:.7rem; font-weight:600; }
+.auth-public { background:#d1e7dd; color:#0a3622; }
+.auth-user   { background:#cfe2ff; color:#084298; }
+.auth-admin  { background:#f8d7da; color:#58151c; }
+.score-box { background: linear-gradient(135deg,#dc3545,#b02a37); color:#fff; border-radius:.5rem; padding:1rem 1.5rem; }
+.env-table td:first-child { font-family: monospace; font-size:.82rem; color:#c0392b; }
+.file-tree { font-family: monospace; font-size: .85rem; line-height: 1.8; background:#212529; color:#e9ecef; border-radius:.5rem; padding:1.2rem 1.5rem; }
+.file-tree .dir { color:#74c0fc; }
+.file-tree .file { color:#a9e34b; }
+.file-tree .comment { color:#6c757d; }
+@media(max-width:768px){
+  .doc-layout { flex-direction: column; }
+  .doc-sidebar { width:100%; position:static; height:auto; border-right:none; border-bottom:1px solid #dee2e6; }
+  .doc-main { padding:1.2rem; }
+}
+</style>
+
+<div class="container-fluid p-0">
+  <!-- Header -->
+  <div class="bg-dark text-white py-4 px-4 px-lg-5 mb-0">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      <span class="display-6">📋</span>
+      <div>
+        <h1 class="mb-0 fw-bold fs-3">Documentação — Bolão Copa 2026</h1>
+        <p class="mb-0 text-muted small">Referência completa do sistema · Pública · Versão 1.0</p>
+      </div>
+      <div class="ms-auto d-flex gap-2 flex-wrap">
+        <a href="/api/swagger" class="btn btn-sm btn-outline-light" target="_blank"><i class="bi bi-braces me-1"></i>Swagger UI</a>
+        <a href="/" class="btn btn-sm btn-outline-light"><i class="bi bi-house me-1"></i>Início</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="doc-layout">
+    <!-- ═══════════════ SIDEBAR ═══════════════ -->
+    <nav class="doc-sidebar d-none d-md-block" id="docSidebar">
+      <div class="nav-category">Introdução</div>
+      <a class="nav-link" href="#visao-geral">Visão Geral</a>
+      <a class="nav-link" href="#tecnologias">Tecnologias</a>
+      <a class="nav-link" href="#estrutura">Estrutura de Arquivos</a>
+      <a class="nav-link" href="#configuracao">Configuração (.env)</a>
+      <div class="nav-category">Regras do Bolão</div>
+      <a class="nav-link" href="#pontuacao">Sistema de Pontuação</a>
+      <a class="nav-link" href="#financeiro">Sistema Financeiro</a>
+      <a class="nav-link" href="#fases">Fases do Torneio</a>
+      <div class="nav-category">Banco de Dados</div>
+      <a class="nav-link" href="#modelos">Modelos (Models)</a>
+      <a class="nav-link" href="#migracoes">Migrações</a>
+      <div class="nav-category">API Reference</div>
+      <a class="nav-link" href="#api-auth">Auth</a>
+      <a class="nav-link" href="#api-users">Usuários</a>
+      <a class="nav-link" href="#api-matches">Partidas</a>
+      <a class="nav-link" href="#api-predictions">Palpites</a>
+      <a class="nav-link" href="#api-rankings">Rankings</a>
+      <a class="nav-link" href="#api-notifications">Notificações</a>
+      <a class="nav-link" href="#api-messages">Mensagens</a>
+      <a class="nav-link" href="#api-pvp">PVP</a>
+      <a class="nav-link" href="#api-admin">Admin</a>
+      <a class="nav-link" href="#api-live">Live Data</a>
+      <div class="nav-category">Serviços</div>
+      <a class="nav-link" href="#svc-scheduler">Scheduler</a>
+      <a class="nav-link" href="#svc-email">E-mail</a>
+      <a class="nav-link" href="#svc-whatsapp">WhatsApp</a>
+      <a class="nav-link" href="#svc-points">Calculadora de Pontos</a>
+      <a class="nav-link" href="#svc-standings">Classificação</a>
+      <div class="nav-category">Guias</div>
+      <a class="nav-link" href="#guia-usuario">Guia do Usuário</a>
+      <a class="nav-link" href="#guia-admin">Guia do Admin</a>
+      <a class="nav-link" href="#guia-knockout">Fase Eliminatória</a>
+    </nav>
+
+    <!-- ═══════════════ CONTEÚDO ═══════════════ -->
+    <main class="doc-main">
+
+      <!-- ── VISÃO GERAL ── -->
+      <section class="doc-section" id="visao-geral">
+        <h2><i class="bi bi-trophy-fill text-danger me-2"></i>Visão Geral</h2>
+        <p>O <strong>Bolão Copa 2026</strong> é uma plataforma web completa para gerenciamento de bolão da Copa do Mundo FIFA 2026 (48 times, 104 partidas). Usuários cadastrados fazem palpites nos jogos, acumulam pontos e competem em rankings por rodada e geral.</p>
+        <div class="row g-3 mt-1">
+          <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 bg-primary bg-opacity-10 text-center p-3">
+              <div class="fs-1">🎯</div>
+              <div class="fw-bold mt-1">Palpites</div>
+              <div class="small text-muted">1 palpite por jogo, prazo automático</div>
+            </div>
+          </div>
+          <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 bg-success bg-opacity-10 text-center p-3">
+              <div class="fs-1">🏆</div>
+              <div class="fw-bold mt-1">Rankings</div>
+              <div class="small text-muted">Por rodada e geral</div>
+            </div>
+          </div>
+          <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 bg-warning bg-opacity-10 text-center p-3">
+              <div class="fs-1">💰</div>
+              <div class="fw-bold mt-1">Premiação</div>
+              <div class="small text-muted">R$ 100/inscrição + R$ 10/rodada</div>
+            </div>
+          </div>
+          <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 bg-info bg-opacity-10 text-center p-3">
+              <div class="fs-1">📱</div>
+              <div class="fw-bold mt-1">Notificações</div>
+              <div class="small text-muted">Email + WhatsApp automáticos</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── TECNOLOGIAS ── -->
+      <section class="doc-section" id="tecnologias">
+        <h2><i class="bi bi-cpu me-2 text-danger"></i>Tecnologias</h2>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <h3>Backend</h3>
+            <ul class="list-group list-group-flush">
+              <li class="list-group-item d-flex justify-content-between"><span><strong>FastAPI</strong> — framework web Python</span><span class="badge bg-secondary">Python 3.11+</span></li>
+              <li class="list-group-item d-flex justify-content-between"><span><strong>SQLAlchemy</strong> — ORM para banco de dados</span><span class="badge bg-secondary">ORM</span></li>
+              <li class="list-group-item d-flex justify-content-between"><span><strong>SQLite</strong> — banco de dados relacional</span><span class="badge bg-secondary">DB</span></li>
+              <li class="list-group-item d-flex justify-content-between"><span><strong>Pydantic v2</strong> — validação de dados</span><span class="badge bg-secondary">Schema</span></li>
+              <li class="list-group-item d-flex justify-content-between"><span><strong>APScheduler</strong> — jobs agendados em background</span><span class="badge bg-secondary">Scheduler</span></li>
+              <li class="list-group-item d-flex justify-content-between"><span><strong>PyJWT</strong> — autenticação JWT</span><span class="badge bg-secondary">Auth</span></li>
+              <li class="list-group-item d-flex justify-content-between"><span><strong>Gunicorn + Uvicorn</strong> — servidor ASGI (produção)</span><span class="badge bg-secondary">Server</span></li>
+            </ul>
+          </div>
+          <div class="col-md-6">
+            <h3>Frontend</h3>
+            <ul class="list-group list-group-flush">
+              <li class="list-group-item d-flex justify-content-between"><span><strong>Bootstrap 5</strong> — UI responsiva</span><span class="badge bg-primary">CSS</span></li>
+              <li class="list-group-item d-flex justify-content-between"><span><strong>Bootstrap Icons</strong> — ícones</span><span class="badge bg-primary">Icons</span></li>
+              <li class="list-group-item d-flex justify-content-between"><span><strong>Jinja2</strong> — templates HTML server-side</span><span class="badge bg-primary">Template</span></li>
+              <li class="list-group-item d-flex justify-content-between"><span><strong>JavaScript Vanilla</strong> — lógica client-side</span><span class="badge bg-primary">JS</span></li>
+            </ul>
+            <h3 class="mt-3">Integrações</h3>
+            <ul class="list-group list-group-flush">
+              <li class="list-group-item"><strong>Evolution API</strong> — envio de mensagens WhatsApp</li>
+              <li class="list-group-item"><strong>SMTP</strong> — envio de e-mails (Gmail/Outlook)</li>
+              <li class="list-group-item"><strong>Groq API</strong> — assistente de IA para análises</li>
+              <li class="list-group-item"><strong>API Football</strong> — dados ao vivo de partidas</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── ESTRUTURA ── -->
+      <section class="doc-section" id="estrutura">
+        <h2><i class="bi bi-folder2-open me-2 text-danger"></i>Estrutura de Arquivos</h2>
+        <div class="file-tree">
+<span class="dir">bolao/</span>
+├── <span class="file">main.py</span>               <span class="comment"># Entry-point: FastAPI app, rotas HTML, lifespan</span>
+├── <span class="file">requirements.txt</span>
+├── <span class="file">.env</span>                  <span class="comment"># Variáveis de ambiente (não versionar)</span>
+├── <span class="file">bolao.db</span>              <span class="comment"># SQLite (gerado automaticamente)</span>
+├── <span class="file">bolao.service</span>         <span class="comment"># Systemd: gunicorn --workers 3</span>
+├── <span class="file">start.bat</span>             <span class="comment"># Script Windows para dev</span>
+├── <span class="dir">app/</span>
+│   ├── <span class="file">__init__.py</span>
+│   ├── <span class="file">auth.py</span>           <span class="comment"># JWT: get_current_user, get_current_admin</span>
+│   ├── <span class="file">database.py</span>       <span class="comment"># Engine SQLite, SessionLocal, run_migrations()</span>
+│   ├── <span class="file">models.py</span>         <span class="comment"># SQLAlchemy ORM models</span>
+│   ├── <span class="file">schemas.py</span>        <span class="comment"># Pydantic schemas (request/response)</span>
+│   ├── <span class="file">seed_data.py</span>      <span class="comment"># 104 partidas da Copa 2026 pré-cadastradas</span>
+│   ├── <span class="dir">routers/</span>
+│   │   ├── <span class="file">auth.py</span>       <span class="comment"># /api/auth/</span>
+│   │   ├── <span class="file">users.py</span>      <span class="comment"># /api/users/</span>
+│   │   ├── <span class="file">matches.py</span>    <span class="comment"># /api/matches/</span>
+│   │   ├── <span class="file">predictions.py</span><span class="comment"># /api/predictions/</span>
+│   │   ├── <span class="file">rankings.py</span>   <span class="comment"># /api/rankings/</span>
+│   │   ├── <span class="file">notifications.py</span><span class="comment"># /api/notifications/</span>
+│   │   ├── <span class="file">messages.py</span>   <span class="comment"># /api/messages/ + deliver_message()</span>
+│   │   ├── <span class="file">admin.py</span>      <span class="comment"># /api/admin/</span>
+│   │   ├── <span class="file">pvp.py</span>        <span class="comment"># /api/pvp/</span>
+│   │   ├── <span class="file">live_data.py</span>  <span class="comment"># /api/live/</span>
+│   │   └── <span class="file">groq.py</span>       <span class="comment"># /api/groq/</span>
+│   ├── <span class="dir">services/</span>
+│   │   ├── <span class="file">scheduler.py</span>  <span class="comment"># APScheduler: jobs automáticos</span>
+│   │   ├── <span class="file">email_service.py</span><span class="comment"># SMTP: envio de e-mails</span>
+│   │   ├── <span class="file">whatsapp_service.py</span><span class="comment"># Evolution API</span>
+│   │   ├── <span class="file">points_calculator.py</span><span class="comment"># Cálculo de pontos por palpite</span>
+│   │   ├── <span class="file">standings_service.py</span><span class="comment"># Classificação de grupos + mata-mata</span>
+│   │   └── <span class="file">pvp_calculator.py</span><span class="comment"># Lógica das apostas PVP</span>
+│   └── <span class="dir">utils/</span>
+│       └── <span class="file">timezone.py</span>   <span class="comment"># get_brasilia_now() — fuso UTC-3</span>
+└── <span class="dir">static/</span>
+    ├── <span class="dir">css/</span>              <span class="comment"># Estilos globais</span>
+    ├── <span class="dir">js/</span>               <span class="comment"># Scripts globais</span>
+    ├── <span class="dir">images/</span>           <span class="comment"># BRA.png, ARG.png … (bandeiras)</span>
+    └── <span class="dir">templates/</span>        <span class="comment"># HTML Jinja2</span>
+        ├── <span class="file">base.html</span>     <span class="comment"># Layout base (Bootstrap, navbar)</span>
+        ├── <span class="file">index.html</span>    <span class="comment"># Landing page</span>
+        ├── <span class="file">dashboard.html</span><span class="comment"># Painel do usuário</span>
+        ├── <span class="file">palpites.html</span> <span class="comment"># Fazer palpites</span>
+        ├── <span class="file">partidas.html</span> <span class="comment"># Ver partidas (ao vivo, hoje, próximas, resultados)</span>
+        ├── <span class="file">ranking.html</span>  <span class="comment"># Rankings por rodada e geral</span>
+        ├── <span class="file">grupos.html</span>   <span class="comment"># Classificação de grupos</span>
+        ├── <span class="file">admin.html</span>    <span class="comment"># Painel administrativo</span>
+        ├── <span class="file">admin_16avos.html</span><span class="comment"># Configurar fases eliminatórias</span>
+        ├── <span class="file">admin_palpites.html</span><span class="comment"># Prazos e palpites manuais</span>
+        ├── <span class="file">cobrancas.html</span><span class="comment"># Central de cobranças</span>
+        ├── <span class="file">mensagens.html</span><span class="comment"># Central de mensagens</span>
+        ├── <span class="file">pvp.html</span>      <span class="comment"># Apostas PVP</span>
+        └── <span class="file">docs.html</span>     <span class="comment"># Esta página</span>
+        </div>
+      </section>
+
+      <!-- ── CONFIGURAÇÃO ── -->
+      <section class="doc-section" id="configuracao">
+        <h2><i class="bi bi-gear-fill me-2 text-danger"></i>Configuração — Variáveis de Ambiente</h2>
+        <p>Crie um arquivo <code>.env</code> na raiz do projeto com as variáveis abaixo. Nunca versione este arquivo.</p>
+        <table class="table table-sm table-bordered env-table">
+          <thead class="table-dark"><tr><th>Variável</th><th>Descrição</th><th>Exemplo</th></tr></thead>
+          <tbody>
+            <tr><td>DATABASE_URL</td><td>URL do banco SQLite</td><td>sqlite:///./bolao.db</td></tr>
+            <tr><td>SECRET_KEY</td><td>Chave secreta JWT (use um valor longo e aleatório)</td><td>mudar-em-producao</td></tr>
+            <tr><td>ALGORITHM</td><td>Algoritmo JWT</td><td>HS256</td></tr>
+            <tr><td>ACCESS_TOKEN_EXPIRE_MINUTES</td><td>Expiração do token JWT em minutos</td><td>10080 (7 dias)</td></tr>
+            <tr><td>SMTP_HOST</td><td>Servidor de e-mail</td><td>smtp.gmail.com</td></tr>
+            <tr><td>SMTP_PORT</td><td>Porta SMTP</td><td>587</td></tr>
+            <tr><td>SMTP_USER</td><td>Usuário SMTP (seu e-mail)</td><td>noreply@dominio.com</td></tr>
+            <tr><td>SMTP_PASSWORD</td><td>Senha SMTP / App Password</td><td>xxxx xxxx xxxx xxxx</td></tr>
+            <tr><td>FROM_EMAIL</td><td>Endereço remetente dos e-mails</td><td>noreply@bolao.com</td></tr>
+            <tr><td>EVOLUTION_API_URL</td><td>URL da instância Evolution API</td><td>http://localhost:8080</td></tr>
+            <tr><td>EVOLUTION_API_KEY</td><td>API Key da Evolution</td><td>minha-api-key</td></tr>
+            <tr><td>EVOLUTION_INSTANCE</td><td>Nome da instância WhatsApp</td><td>bolao-copa-2026</td></tr>
+            <tr><td>WHATSAPP_DIRETO</td><td>Número padrão para testes</td><td>5511999999999</td></tr>
+            <tr><td>GROQ_API_KEY</td><td>API Key do Groq (IA)</td><td>gsk_...</td></tr>
+            <tr><td>API_FOOTBALL_KEY</td><td>API Key para dados ao vivo de futebol</td><td>abc123</td></tr>
+            <tr><td>FOOTBALL_LEAGUE_ID</td><td>ID da liga na API Football (Copa 2026)</td><td>1</td></tr>
+            <tr><td>FOOTBALL_SEASON</td><td>Temporada</td><td>2026</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ── PONTUAÇÃO ── -->
+      <section class="doc-section" id="pontuacao">
+        <h2><i class="bi bi-star-fill me-2 text-danger"></i>Sistema de Pontuação</h2>
+        <p>O sistema usa pontuação <strong>acumulativa</strong>: cada componente do palpite é avaliado independentemente.</p>
+        <div class="score-box mb-3">
+          <div class="row g-3 text-center">
+            <div class="col-6 col-md-3"><div class="fs-2 fw-bold">+2</div><div>Acertar vencedor ou empate</div></div>
+            <div class="col-6 col-md-3"><div class="fs-2 fw-bold">+2</div><div>Acertar gols do Time A</div></div>
+            <div class="col-6 col-md-3"><div class="fs-2 fw-bold">+2</div><div>Acertar gols do Time B</div></div>
+            <div class="col-6 col-md-3"><div class="fs-2 fw-bold">+2</div><div>Bônus placar exato completo</div></div>
+          </div>
+          <div class="text-center mt-2 fw-bold fs-5">Máximo: 8 pontos por jogo</div>
+        </div>
+        <h3>Exemplos</h3>
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered">
+            <thead class="table-dark"><tr><th>Resultado</th><th>Palpite</th><th>Vencedor</th><th>Gols A</th><th>Gols B</th><th>Exato</th><th>Total</th></tr></thead>
+            <tbody>
+              <tr class="table-success"><td>2 × 1</td><td>2 × 1</td><td>✅ +2</td><td>✅ +2</td><td>✅ +2</td><td>✅ +2</td><td><strong>8</strong></td></tr>
+              <tr><td>2 × 1</td><td>3 × 1</td><td>✅ +2</td><td>❌</td><td>✅ +2</td><td>❌</td><td><strong>4</strong></td></tr>
+              <tr><td>2 × 1</td><td>1 × 0</td><td>✅ +2</td><td>❌</td><td>❌</td><td>❌</td><td><strong>2</strong></td></tr>
+              <tr><td>1 × 1</td><td>2 × 2</td><td>✅ +2</td><td>❌</td><td>❌</td><td>❌</td><td><strong>2</strong></td></tr>
+              <tr class="table-danger"><td>2 × 1</td><td>0 × 2</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td><strong>0</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="alert alert-info mt-2">
+          <i class="bi bi-info-circle me-2"></i>
+          Na fase mata-mata, a pontuação é calculada <strong>somente pelo placar dos 90 minutos</strong>. O resultado de prorrogação e pênaltis não conta para pontos — apenas para avançar de fase.
+        </div>
+        <h3>Prazo para Palpites</h3>
+        <p>Por padrão, palpites são bloqueados <strong>10 minutos antes</strong> do início de cada partida. O admin pode configurar um prazo personalizado por partida via <code>PUT /api/admin/matches/{match_id}/deadline</code>.</p>
+      </section>
+
+      <!-- ── FINANCEIRO ── -->
+      <section class="doc-section" id="financeiro">
+        <h2><i class="bi bi-cash-coin me-2 text-danger"></i>Sistema Financeiro</h2>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <div class="card border-warning h-100">
+              <div class="card-header bg-warning">💳 Inscrição</div>
+              <div class="card-body">
+                <p class="fs-4 fw-bold text-center">R$ 100,00</p>
+                <ul class="small mb-0">
+                  <li>Taxa única, paga uma vez</li>
+                  <li>Libera acesso para fazer palpites</li>
+                  <li>Confirmar no admin: <em>Central de Cobrança</em></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="card border-info h-100">
+              <div class="card-header bg-info text-white">📅 Por Rodada</div>
+              <div class="card-body">
+                <p class="fs-4 fw-bold text-center">R$ 10,00 / rodada</p>
+                <ul class="small mb-0">
+                  <li>Pago por rodada participada</li>
+                  <li>Usuário escolhe quais rodadas participar</li>
+                  <li>Sem pagamento = sem palpites naquela rodada</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="card border-success h-100">
+              <div class="card-header bg-success text-white">🏆 Prêmios</div>
+              <div class="card-body">
+                <p class="fs-4 fw-bold text-center">R$ 100,00 / rodada</p>
+                <ul class="small mb-0">
+                  <li>Distribuição padrão: 50% / 30% / 20%</li>
+                  <li>Configurável por admin (<em>PrizeConfiguration</em>)</li>
+                  <li>Calculado ao final de cada rodada</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── FASES ── -->
+      <section class="doc-section" id="fases">
+        <h2><i class="bi bi-diagram-3 me-2 text-danger"></i>Fases do Torneio (Copa 2026)</h2>
+        <p>A Copa 2026 tem 48 times divididos em 12 grupos de 4. O sistema registra cada fase como <code>stage</code> no model <code>Match</code>:</p>
+        <table class="table table-sm table-bordered">
+          <thead class="table-dark"><tr><th>Valor no DB</th><th>Nome</th><th>Partidas</th><th>Descrição</th></tr></thead>
+          <tbody>
+            <tr><td><code>group_stage</code></td><td>Fase de Grupos</td><td>72</td><td>12 grupos × 6 partidas cada</td></tr>
+            <tr><td><code>round_of_32</code></td><td>16 Avos de Final</td><td>16</td><td>32 times (1ºs, 2ºs, melhores 3ºs)</td></tr>
+            <tr><td><code>round_of_16</code></td><td>Oitavas de Final</td><td>8</td><td>16 times</td></tr>
+            <tr><td><code>quarter_final</code></td><td>Quartas de Final</td><td>4</td><td>8 times</td></tr>
+            <tr><td><code>semi_final</code></td><td>Semifinais</td><td>2</td><td>4 times</td></tr>
+            <tr><td><code>third_place</code></td><td>Disputa 3º Lugar</td><td>1</td><td>Perdedores das semis</td></tr>
+            <tr><td><code>final</code></td><td>Final</td><td>1</td><td>Os 2 melhores</td></tr>
+          </tbody>
+        </table>
+        <div class="alert alert-warning">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          <strong>Mata-mata com empate:</strong> o campo <code>penalty_winner</code> ("A" ou "B") deve ser preenchido pelo admin ao finalizar um jogo empatado. Isso determina o avanço de fase sem afetar a pontuação dos palpites.
+        </div>
+      </section>
+
+      <!-- ── MODELOS ── -->
+      <section class="doc-section" id="modelos">
+        <h2><i class="bi bi-database me-2 text-danger"></i>Modelos do Banco de Dados</h2>
+        <p>Todos os modelos estão em <code>app/models.py</code> usando SQLAlchemy. O banco é SQLite (<code>bolao.db</code>).</p>
+
+        <h3>User</h3>
+        <table class="table table-sm table-bordered field-table">
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
+          <tbody>
+            <tr><td><code>id</code></td><td>Integer PK</td><td>Identificador único</td></tr>
+            <tr><td><code>full_name</code></td><td>String</td><td>Nome completo</td></tr>
+            <tr><td><code>email</code></td><td>String unique</td><td>E-mail (login)</td></tr>
+            <tr><td><code>phone</code></td><td>String</td><td>WhatsApp com DDI (ex: 5511999999999)</td></tr>
+            <tr><td><code>hashed_password</code></td><td>String</td><td>Senha bcrypt</td></tr>
+            <tr><td><code>is_admin</code></td><td>Boolean</td><td>Permissão de administrador</td></tr>
+            <tr><td><code>status</code></td><td>Enum</td><td>pending / active / inactive / suspended</td></tr>
+            <tr><td><code>email_verified</code></td><td>Boolean</td><td>E-mail confirmado</td></tr>
+            <tr><td><code>phone_verified</code></td><td>Boolean</td><td>WhatsApp confirmado</td></tr>
+            <tr><td><code>registration_paid</code></td><td>Boolean</td><td>Inscrição paga</td></tr>
+            <tr><td><code>reset_token</code></td><td>String nullable</td><td>Token de recuperação de senha</td></tr>
+            <tr><td><code>reset_token_expires</code></td><td>DateTime nullable</td><td>Expiração do token de reset</td></tr>
+            <tr><td><code>created_at / updated_at</code></td><td>DateTime</td><td>Timestamps</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Match</h3>
+        <table class="table table-sm table-bordered field-table">
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
+          <tbody>
+            <tr><td><code>id</code></td><td>Integer PK</td><td>Identificador único</td></tr>
+            <tr><td><code>match_number</code></td><td>Integer unique</td><td>Número da partida no torneio (1–104)</td></tr>
+            <tr><td><code>group</code></td><td>String nullable</td><td>Grupo (A–L) — null nas fases eliminatórias</td></tr>
+            <tr><td><code>stage</code></td><td>Enum(Stage)</td><td>Fase (group_stage, round_of_32, etc.)</td></tr>
+            <tr><td><code>team_a / team_b</code></td><td>String</td><td>Nome dos times</td></tr>
+            <tr><td><code>team_a_code / team_b_code</code></td><td>String</td><td>Sigla (BRA, ARG…) — usada para buscar bandeira</td></tr>
+            <tr><td><code>match_date</code></td><td>DateTime</td><td>Data/hora da partida (horário de Brasília)</td></tr>
+            <tr><td><code>prediction_deadline</code></td><td>DateTime nullable</td><td>Prazo override para palpites</td></tr>
+            <tr><td><code>local_time / brasilia_time</code></td><td>String</td><td>Horário local e de Brasília (ex: "16:00")</td></tr>
+            <tr><td><code>city / stadium</code></td><td>String</td><td>Local da partida</td></tr>
+            <tr><td><code>status</code></td><td>Enum(MatchStatus)</td><td>scheduled / live / finished / postponed</td></tr>
+            <tr><td><code>score_a / score_b</code></td><td>Integer nullable</td><td>Placar dos 90 minutos</td></tr>
+            <tr><td><code>penalty_winner</code></td><td>String nullable</td><td>"A" ou "B" — vencedor nos pênaltis (mata-mata)</td></tr>
+            <tr><td><code>round_number</code></td><td>Integer</td><td>Rodada do bolão (1–N)</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Prediction</h3>
+        <table class="table table-sm table-bordered field-table">
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
+          <tbody>
+            <tr><td><code>id</code></td><td>Integer PK</td><td></td></tr>
+            <tr><td><code>user_id</code></td><td>FK → User</td><td></td></tr>
+            <tr><td><code>match_id</code></td><td>FK → Match</td><td></td></tr>
+            <tr><td><code>predicted_score_a / b</code></td><td>Integer</td><td>Palpite do usuário</td></tr>
+            <tr><td><code>points_earned</code></td><td>Integer</td><td>Total de pontos (0–8)</td></tr>
+            <tr><td><code>points_winner / score_a / score_b / exact</code></td><td>Integer</td><td>Detalhamento dos pontos</td></tr>
+            <tr><td><code>created_at / updated_at</code></td><td>DateTime</td><td></td></tr>
+          </tbody>
+        </table>
+
+        <h3>GroupStanding</h3>
+        <table class="table table-sm table-bordered field-table">
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
+          <tbody>
+            <tr><td><code>group</code></td><td>String</td><td>Letra do grupo (A–L)</td></tr>
+            <tr><td><code>team / team_code</code></td><td>String</td><td>Nome e sigla do time</td></tr>
+            <tr><td><code>position</code></td><td>Integer</td><td>Posição no grupo (1–4)</td></tr>
+            <tr><td><code>played / won / drawn / lost</code></td><td>Integer</td><td>J/V/E/D</td></tr>
+            <tr><td><code>goals_for / goals_against / goal_difference</code></td><td>Integer</td><td>GF / GC / SG</td></tr>
+            <tr><td><code>points</code></td><td>Integer</td><td>Pontos na classificação do grupo</td></tr>
+          </tbody>
+        </table>
+
+        <h3>RoundRanking</h3>
+        <table class="table table-sm table-bordered field-table">
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
+          <tbody>
+            <tr><td><code>user_id</code></td><td>FK → User</td><td></td></tr>
+            <tr><td><code>round_number</code></td><td>Integer</td><td></td></tr>
+            <tr><td><code>position</code></td><td>Integer</td><td>Posição no ranking da rodada</td></tr>
+            <tr><td><code>total_points</code></td><td>Integer</td><td>Pontos naquela rodada</td></tr>
+            <tr><td><code>matches_played / exact_scores</code></td><td>Integer</td><td>Partidas e acertos exatos</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Payment</h3>
+        <table class="table table-sm table-bordered field-table">
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
+          <tbody>
+            <tr><td><code>user_id</code></td><td>FK → User</td><td></td></tr>
+            <tr><td><code>type</code></td><td>String</td><td>"registration" ou "round"</td></tr>
+            <tr><td><code>round_number</code></td><td>Integer nullable</td><td>Para type="round"</td></tr>
+            <tr><td><code>amount</code></td><td>Float</td><td>Valor em R$</td></tr>
+            <tr><td><code>paid</code></td><td>Boolean</td><td>Confirmado pelo admin?</td></tr>
+            <tr><td><code>transaction_id</code></td><td>String nullable</td><td>Comprovante</td></tr>
+            <tr><td><code>payment_date</code></td><td>DateTime nullable</td><td></td></tr>
+          </tbody>
+        </table>
+
+        <h3>ScheduledMessage</h3>
+        <p>Mensagens agendadas para envio por e-mail e/ou WhatsApp.</p>
+        <table class="table table-sm table-bordered field-table">
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
+          <tbody>
+            <tr><td><code>title / body</code></td><td>String</td><td>Título e corpo da mensagem</td></tr>
+            <tr><td><code>target_type</code></td><td>String</td><td>"all" / "paid" / "user"</td></tr>
+            <tr><td><code>target_user_id</code></td><td>FK nullable</td><td>Para target_type="user"</td></tr>
+            <tr><td><code>channel</code></td><td>String</td><td>"email" / "whatsapp" / "both"</td></tr>
+            <tr><td><code>status</code></td><td>String</td><td>pending / scheduled / sending / sent / failed</td></tr>
+            <tr><td><code>scheduled_at</code></td><td>DateTime nullable</td><td>Quando deve ser enviada</td></tr>
+            <tr><td><code>recurrence</code></td><td>String nullable</td><td>"daily" / "weekly" / null</td></tr>
+            <tr><td><code>next_run</code></td><td>DateTime nullable</td><td>Próxima execução (recorrente)</td></tr>
+            <tr><td><code>sent_at</code></td><td>DateTime nullable</td><td>Quando foi enviada</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Outros Modelos</h3>
+        <ul>
+          <li><strong>PvpBet</strong> — apostas PVP entre usuários</li>
+          <li><strong>PrizeConfiguration</strong> — configuração de prêmios por rodada</li>
+          <li><strong>RoundNotification</strong> — controle de notificações de início/fim de rodada</li>
+          <li><strong>CarouselImage</strong> — slides do carrossel na landing page</li>
+          <li><strong>LandingPageConfig</strong> — configurações visuais da landing page</li>
+        </ul>
+      </section>
+
+      <!-- ── MIGRAÇÕES ── -->
+      <section class="doc-section" id="migracoes">
+        <h2><i class="bi bi-arrow-up-circle me-2 text-danger"></i>Migrações de Banco</h2>
+        <p>O sistema usa migrações <strong>leves e automáticas</strong> em <code>app/database.py → run_migrations()</code>, executadas no startup da aplicação. Não usa Alembic.</p>
+        <p>Quando uma coluna nova é adicionada ao modelo, uma entrada é adicionada em <code>run_migrations()</code>:</p>
+        <pre class="bg-dark text-white p-3 rounded"><code>if "penalty_winner" not in existing_cols:
+    pending.append("ALTER TABLE matches ADD COLUMN penalty_winner VARCHAR")</code></pre>
+        <p>As colunas existentes atualmente migradas automaticamente incluem: <code>prediction_deadline</code>, <code>penalty_winner</code>, <code>reset_token</code>, <code>reset_token_expires</code> e outros campos adicionados ao longo do desenvolvimento.</p>
+      </section>
+
+      <!-- ══════════════════════════════════════════ -->
+      <!-- API REFERENCE                              -->
+      <!-- ══════════════════════════════════════════ -->
+
+      <!-- ── AUTH ── -->
+      <section class="doc-section" id="api-auth">
+        <h2><i class="bi bi-shield-lock me-2 text-danger"></i>API — Auth <code class="fs-6">/api/auth</code></h2>
+        <p>Todos os endpoints de auth são <span class="auth-badge auth-public">público</span> (sem token necessário).</p>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/auth/register</code> — Cadastrar novo usuário
+          <div class="small text-muted mt-1">Body: <code>{"full_name","email","phone","password"}</code> → cria usuário com status <em>pending</em>, envia código de verificação por e-mail.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/auth/login</code> — Autenticar
+          <div class="small text-muted mt-1">Body: <code>{"email","password"}</code> → retorna <code>{"access_token","token_type"}</code>. Token JWT com expiração configurável.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/auth/verify-email</code> — Confirmar e-mail
+          <div class="small text-muted mt-1">Body: <code>{"email","code"}</code> → verifica o código enviado ao e-mail. Ativa a conta.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/auth/verify-phone</code> — Confirmar WhatsApp
+          <div class="small text-muted mt-1">Body: <code>{"phone","code"}</code> → verifica código enviado via WhatsApp.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/auth/me</code> <span class="auth-badge auth-user">token</span> — Perfil do usuário logado
+          <div class="small text-muted mt-1">Retorna dados completos do usuário autenticado.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/auth/forgot-password</code> — Solicitar reset de senha
+          <div class="small text-muted mt-1">Body: <code>{"email"}</code> → envia e-mail com link de reset.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/auth/reset-password</code> — Redefinir senha
+          <div class="small text-muted mt-1">Body: <code>{"token","new_password"}</code> → valida token e atualiza senha.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/auth/resend-verification</code> — Reenviar código de verificação
+          <div class="small text-muted mt-1">Body: <code>{"email"}</code></div></div>
+      </section>
+
+      <!-- ── USERS ── -->
+      <section class="doc-section" id="api-users">
+        <h2><i class="bi bi-people me-2 text-danger"></i>API — Usuários <code class="fs-6">/api/users</code></h2>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/users/profile</code> <span class="auth-badge auth-user">token</span>
+          <div class="small text-muted mt-1">Retorna perfil detalhado: dados pessoais, pagamentos e estatísticas de palpites.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-put">PUT</span><code>/api/users/profile</code> <span class="auth-badge auth-user">token</span>
+          <div class="small text-muted mt-1">Body: <code>{"full_name","phone"}</code> — atualiza nome e telefone.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-put">PUT</span><code>/api/users/change-password</code> <span class="auth-badge auth-user">token</span>
+          <div class="small text-muted mt-1">Body: <code>{"current_password","new_password"}</code></div></div>
+      </section>
+
+      <!-- ── MATCHES ── -->
+      <section class="doc-section" id="api-matches">
+        <h2><i class="bi bi-controller me-2 text-danger"></i>API — Partidas <code class="fs-6">/api/matches</code></h2>
+        <p>Endpoints de partidas são <span class="auth-badge auth-public">público</span> para leitura; escrita requer <span class="auth-badge auth-admin">admin</span>.</p>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/matches/</code>
+          <div class="small text-muted mt-1">Query params opcionais: <code>status</code> (scheduled/live/finished), <code>round_number</code>, <code>group</code>. Retorna lista ordenada por data crescente.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/matches/live</code>
+          <div class="small text-muted mt-1">Retorna apenas partidas com status <em>live</em>.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/matches/today</code>
+          <div class="small text-muted mt-1">Retorna partidas do dia atual (fuso Brasília).</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/matches/{match_id}</code>
+          <div class="small text-muted mt-1">Retorna uma partida pelo ID.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-put">PUT</span><code>/api/matches/{match_id}/score</code> <span class="auth-badge auth-admin">admin</span>
+          <div class="small text-muted mt-1">Body: <code>{"score_a","score_b","status","penalty_winner?"}</code>. Ao finalizar (status=finished): calcula pontos de todos os palpites, recalcula rankings e atualiza classificação de grupos/mata-mata automaticamente.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/matches/{match_id}/live-update</code> <span class="auth-badge auth-admin">admin</span>
+          <div class="small text-muted mt-1">Body: <code>{"score_a","score_b"}</code> — atualiza placar parcial sem finalizar.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/matches/standings/{group}</code>
+          <div class="small text-muted mt-1">Retorna classificação de um grupo específico (A–L).</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/matches/standings/</code>
+          <div class="small text-muted mt-1">Retorna classificação de todos os grupos.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/matches/admin/refresh-standings</code> <span class="auth-badge auth-admin">admin</span>
+          <div class="small text-muted mt-1">Recalcula manualmente classificação de todos os grupos e atualiza partidas do mata-mata.</div></div>
+      </section>
+
+      <!-- ── PREDICTIONS ── -->
+      <section class="doc-section" id="api-predictions">
+        <h2><i class="bi bi-pencil-square me-2 text-danger"></i>API — Palpites <code class="fs-6">/api/predictions</code></h2>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/predictions/</code> <span class="auth-badge auth-user">token</span>
+          <div class="small text-muted mt-1">Lista todos os palpites do usuário logado, com pontuação detalhada.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/predictions/</code> <span class="auth-badge auth-user">token</span>
+          <div class="small text-muted mt-1">Body: <code>{"match_id","predicted_score_a","predicted_score_b"}</code>. Valida: prazo, pagamento da rodada, status da partida. Palpite existente é substituído.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/predictions/match/{match_id}</code> <span class="auth-badge auth-user">token</span>
+          <div class="small text-muted mt-1">Retorna o palpite do usuário para uma partida específica.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/predictions/{prediction_id}/points</code> <span class="auth-badge auth-user">token</span>
+          <div class="small text-muted mt-1">Retorna detalhamento da pontuação de um palpite específico.</div></div>
+
+        <div class="alert alert-warning mt-2">
+          <i class="bi bi-lock me-2"></i>
+          <strong>Regra de prazo:</strong> palpites são bloqueados 10 minutos antes da partida (ou no <code>prediction_deadline</code> se configurado pelo admin). A tentativa de palpite fora do prazo retorna HTTP 400.
+        </div>
+      </section>
+
+      <!-- ── RANKINGS ── -->
+      <section class="doc-section" id="api-rankings">
+        <h2><i class="bi bi-bar-chart me-2 text-danger"></i>API — Rankings <code class="fs-6">/api/rankings</code></h2>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/rankings/general</code>
+          <div class="small text-muted mt-1">Ranking geral acumulado — todos os usuários, ordenados por total de pontos.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/rankings/round/{round_number}</code>
+          <div class="small text-muted mt-1">Ranking de uma rodada específica.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/rankings/admin/calculate-round/{round_number}</code> <span class="auth-badge auth-admin">admin</span>
+          <div class="small text-muted mt-1">Força recálculo do ranking de uma rodada.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/rankings/admin/calculate-general</code> <span class="auth-badge auth-admin">admin</span>
+          <div class="small text-muted mt-1">Força recálculo do ranking geral.</div></div>
+
+        <h3>Lógica de Cálculo</h3>
+        <ol class="small">
+          <li>Ao finalizar uma partida via <code>PUT /api/matches/{id}/score</code>, os pontos são calculados para cada palpite.</li>
+          <li>O ranking da rodada é recalculado automaticamente (soma dos pontos de todas as partidas da rodada).</li>
+          <li>O ranking geral é recalculado (soma de todos os pontos históricos do usuário).</li>
+          <li>Em caso de empate: desempate por número de acertos exatos.</li>
+        </ol>
+      </section>
+
+      <!-- ── NOTIFICATIONS ── -->
+      <section class="doc-section" id="api-notifications">
+        <h2><i class="bi bi-bell me-2 text-danger"></i>API — Notificações <code class="fs-6">/api/notifications</code></h2>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/notifications/send</code> <span class="auth-badge auth-admin">admin</span>
+          <div class="small text-muted mt-1">Envia notificação manual para um ou todos os usuários via e-mail e/ou WhatsApp.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/notifications/round-result/{round_number}</code> <span class="auth-badge auth-admin">admin</span>
+          <div class="small text-muted mt-1">Envia resultado da rodada para todos: quem ganhou, pontuação do top 3.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/notifications/payment-reminder</code> <span class="auth-badge auth-admin">admin</span>
+          <div class="small text-muted mt-1">Envia lembrete de pagamento pendente para usuários inadimplentes.</div></div>
+      </section>
+
+      <!-- ── MESSAGES ── -->
+      <section class="doc-section" id="api-messages">
+        <h2><i class="bi bi-chat-dots me-2 text-danger"></i>API — Mensagens Agendadas <code class="fs-6">/api/messages</code></h2>
+        <p>Central de mensagens: cria, agenda e envia mensagens manuais ou automáticas para usuários.</p>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/messages/</code> <span class="auth-badge auth-admin">admin</span>
+          <div class="small text-muted mt-1">Lista todas as mensagens agendadas/enviadas.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/messages/</code> <span class="auth-badge auth-admin">admin</span>
+          <div class="small text-muted mt-1">Cria nova mensagem. Body inclui <code>title</code>, <code>body</code>, <code>channel</code> (email/whatsapp/both), <code>target_type</code> (all/paid/user), <code>scheduled_at</code>, <code>recurrence</code>.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/messages/{id}/send-now</code> <span class="auth-badge auth-admin">admin</span>
+          <div class="small text-muted mt-1">Envia imediatamente uma mensagem agendada.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-delete">DELETE</span><code>/api/messages/{id}</code> <span class="auth-badge auth-admin">admin</span>
+          <div class="small text-muted mt-1">Remove uma mensagem agendada (apenas se ainda não enviada).</div></div>
+
+        <h3>Prevenção de Duplicatas (Multi-worker)</h3>
+        <p class="small">Em produção com Gunicorn (3 workers), o scheduler usa dois mecanismos:</p>
+        <ol class="small">
+          <li><strong>File lock</strong> (<code>/tmp/bolao_scheduler.lock</code>) — apenas um worker executa o scheduler via <code>fcntl.flock()</code>.</li>
+          <li><strong>UPDATE atômico</strong> — antes de enviar, executa <code>UPDATE scheduled_messages SET status='sending' WHERE id=:id AND status IN ('scheduled','pending')</code>. Se <code>rowcount=0</code>, outro worker já processou: pula.</li>
+        </ol>
+      </section>
+
+      <!-- ── PVP ── -->
+      <section class="doc-section" id="api-pvp">
+        <h2><i class="bi bi-lightning-charge me-2 text-danger"></i>API — PVP (Apostas) <code class="fs-6">/api/pvp</code></h2>
+        <p>Sistema de apostas diretas entre dois usuários em uma partida específica.</p>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/pvp/bets</code> <span class="auth-badge auth-user">token</span>
+          <div class="small text-muted mt-1">Lista apostas do usuário logado (criadas e recebidas).</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/pvp/bets</code> <span class="auth-badge auth-user">token</span>
+          <div class="small text-muted mt-1">Cria um desafio PVP. Body: <code>{"match_id","opponent_id","amount","predicted_winner"}</code>.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/pvp/bets/{id}/accept</code> <span class="auth-badge auth-user">token</span>
+          <div class="small text-muted mt-1">Adversário aceita o desafio.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/pvp/bets/{id}/reject</code> <span class="auth-badge auth-user">token</span>
+          <div class="small text-muted mt-1">Adversário recusa o desafio.</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/pvp/bets/{id}</code> <span class="auth-badge auth-user">token</span>
+          <div class="small text-muted mt-1">Detalhes de uma aposta específica.</div></div>
+      </section>
+
+      <!-- ── ADMIN ── -->
+      <section class="doc-section" id="api-admin">
+        <h2><i class="bi bi-shield-fill me-2 text-danger"></i>API — Admin <code class="fs-6">/api/admin</code></h2>
+        <p>Todos os endpoints requerem <span class="auth-badge auth-admin">admin</span>.</p>
+
+        <h3>Dashboard e Stats</h3>
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/admin/dashboard</code> — Stats resumidas do sistema</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/admin/stats</code> — Stats detalhadas (usuários, financeiro, palpites, partidas)</div>
+
+        <h3>Usuários</h3>
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/admin/users</code> — Listar todos (filtro: <code>?status=active</code>)</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/admin/users/{id}/detail</code> — Detalhes completos</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-put">PUT</span><code>/api/admin/users/{id}</code> — Editar (nome, email, status, is_admin, verificações, inscrição)</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-delete">DELETE</span><code>/api/admin/users/{id}</code> — Excluir usuário (não admins)</div>
+
+        <h3>Cobranças</h3>
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/admin/billing</code> — Central de cobrança: todos os usuários com status de pagamento por rodada</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/admin/billing/payment</code> — Registrar pagamento (inscrição ou rodada)</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/admin/users/{id}/confirm-payment</code> — Confirmar pagamento rapidamente</div>
+
+        <h3>Partidas (Admin)</h3>
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/admin/matches/pending</code> — Partidas com usuários sem palpite</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/admin/matches/round-of-32</code> — Partidas dos 16 avos</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/admin/matches/knockout?stage=X</code> — Partidas de qualquer fase eliminatória (<code>round_of_32</code>, <code>round_of_16</code>, <code>quarter_final</code>, <code>semi_final</code>, <code>third_place</code>, <code>final</code>)</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-put">PUT</span><code>/api/admin/matches/{id}</code> — Editar times, data, horário e local de uma partida</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-put">PUT</span><code>/api/admin/matches/{id}/deadline</code> — Definir prazo customizado de palpite</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-delete">DELETE</span><code>/api/admin/matches/{id}/deadline</code> — Remover prazo customizado</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/admin/matches/seed</code> — Popular todas as 104 partidas da Copa 2026</div>
+
+        <h3>Palpites (Admin)</h3>
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/admin/predictions</code> — Lançar palpite em nome de um usuário (bypass de prazo)</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/admin/predictions/match/{id}</code> — Listar todos os palpites de uma partida</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-delete">DELETE</span><code>/api/admin/predictions/{user_id}/{match_id}</code> — Remover palpite específico</div>
+
+        <h3>WhatsApp (Evolution API)</h3>
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/admin/whatsapp/config</code> — Configuração atual</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/admin/whatsapp/config</code> — Salvar configuração no .env</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/admin/whatsapp/status</code> — Status da conexão</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/admin/whatsapp/connect</code> — Gerar QR Code para conectar</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/admin/whatsapp/test?number=&amp;message=</code> — Enviar mensagem de teste</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/admin/whatsapp/disconnect</code> — Desconectar instância</div>
+
+        <h3>Prêmios</h3>
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/admin/prizes</code> — Listar configurações de prêmios</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/admin/prizes</code> — Criar configuração (rodada, valor total, distribuição %)</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-put">PUT</span><code>/api/admin/prizes/{id}</code> — Atualizar configuração</div>
+
+        <h3>Landing Page</h3>
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/admin/landing-config</code> — Configurações visuais da home</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-put">PUT</span><code>/api/admin/landing-config</code> — Atualizar cores, textos e seções visíveis</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/admin/carousel</code> — Listar slides do carrossel</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/admin/carousel</code> — Adicionar slide</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-put">PUT</span><code>/api/admin/carousel/{id}</code> — Editar slide</div>
+        <div class="endpoint-row"><span class="endpoint-badge method-delete">DELETE</span><code>/api/admin/carousel/{id}</code> — Remover slide</div>
+      </section>
+
+      <!-- ── LIVE DATA ── -->
+      <section class="doc-section" id="api-live">
+        <h2><i class="bi bi-broadcast me-2 text-danger"></i>API — Live Data <code class="fs-6">/api/live</code></h2>
+        <p>Integração com API externa de futebol para sincronização automática de placares.</p>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-get">GET</span><code>/api/live/sync/{match_id}</code> <span class="auth-badge auth-admin">admin</span>
+          <div class="small text-muted mt-1">Sincroniza uma partida específica com a API externa (API Football).</div></div>
+
+        <div class="endpoint-row"><span class="endpoint-badge method-post">POST</span><code>/api/live/sync-all</code> <span class="auth-badge auth-admin">admin</span>
+          <div class="small text-muted mt-1">Sincroniza todas as partidas em andamento. Executado automaticamente pelo scheduler a cada 2 minutos.</div></div>
+
+        <div class="alert alert-info mt-2 small">
+          <i class="bi bi-info-circle me-2"></i>
+          A sincronização automática só ocorre se <code>API_FOOTBALL_KEY</code> e <code>FOOTBALL_LEAGUE_ID</code> estiverem configurados no <code>.env</code>.
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════ -->
+      <!-- SERVIÇOS                                   -->
+      <!-- ══════════════════════════════════════════ -->
+
+      <!-- ── SCHEDULER ── -->
+      <section class="doc-section" id="svc-scheduler">
+        <h2><i class="bi bi-clock-history me-2 text-danger"></i>Serviço — Scheduler</h2>
+        <p>Implementado em <code>app/services/scheduler.py</code> com <strong>APScheduler BackgroundScheduler</strong>. Iniciado no evento <code>lifespan</code> do FastAPI (startup). Em produção com Gunicorn (3 workers), um file lock garante que apenas <strong>um worker</strong> executa o scheduler.</p>
+
+        <table class="table table-sm table-bordered">
+          <thead class="table-dark"><tr><th>Job</th><th>Frequência</th><th>Descrição</th></tr></thead>
+          <tbody>
+            <tr><td><code>check_live_matches</code></td><td>A cada 5 min</td><td>Marca como LIVE partidas que já começaram</td></tr>
+            <tr><td><code>send_match_reminders</code></td><td>A cada 30 min</td><td>Lembra usuários sem palpite 1 hora antes do jogo</td></tr>
+            <tr><td><code>send_payment_reminders</code></td><td>Diário 9h</td><td>Lembra usuários com pagamento pendente</td></tr>
+            <tr><td><code>send_round_start_notifications</code></td><td>Diário 10h</td><td>Notifica início de nova rodada</td></tr>
+            <tr><td><code>send_round_end_notifications</code></td><td>Diário 9h</td><td>Notifica fim de rodada com resultado</td></tr>
+            <tr><td><code>process_scheduled_messages</code></td><td>A cada 1 min</td><td>Processa mensagens agendadas da Central de Mensagens</td></tr>
+            <tr><td><code>process_pvp_bets</code></td><td>A cada 10 min</td><td>Resolve apostas PVP de partidas finalizadas</td></tr>
+            <tr><td><code>sync_live_matches_from_api</code></td><td>A cada 2 min</td><td>Sincroniza placares ao vivo via API Football</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ── EMAIL ── -->
+      <section class="doc-section" id="svc-email">
+        <h2><i class="bi bi-envelope me-2 text-danger"></i>Serviço — E-mail</h2>
+        <p>Arquivo: <code>app/services/email_service.py</code>. Usa SMTP padrão (TLS porta 587). Configurado pelas variáveis <code>SMTP_*</code> e <code>FROM_EMAIL</code> no <code>.env</code>.</p>
+        <h3>E-mails enviados automaticamente</h3>
+        <ul>
+          <li>Código de verificação de e-mail no cadastro</li>
+          <li>Código de verificação de WhatsApp</li>
+          <li>Link de reset de senha</li>
+          <li>Lembrete de palpite (1h antes do jogo)</li>
+          <li>Resultado da rodada (quem ganhou, pontuação)</li>
+          <li>Aviso de pagamento pendente</li>
+          <li>Mensagens da Central de Mensagens (channel=email ou both)</li>
+        </ul>
+        <div class="alert alert-warning small">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          Para Gmail: use uma <strong>App Password</strong> (não a senha normal). Ative "Acesso a app menos seguro" ou use 2FA com app password em <em>myaccount.google.com/apppasswords</em>.
+        </div>
+      </section>
+
+      <!-- ── WHATSAPP ── -->
+      <section class="doc-section" id="svc-whatsapp">
+        <h2><i class="bi bi-whatsapp me-2 text-danger"></i>Serviço — WhatsApp</h2>
+        <p>Arquivo: <code>app/services/whatsapp_service.py</code>. Integra com <strong>Evolution API</strong> (self-hosted ou cloud). Configurado pelas variáveis <code>EVOLUTION_*</code> no <code>.env</code>.</p>
+        <h3>Configuração inicial</h3>
+        <ol>
+          <li>Instale a Evolution API: <a href="https://github.com/EvolutionAPI/evolution-api" target="_blank">github.com/EvolutionAPI/evolution-api</a></li>
+          <li>Configure as variáveis <code>EVOLUTION_API_URL</code>, <code>EVOLUTION_API_KEY</code>, <code>EVOLUTION_INSTANCE</code></li>
+          <li>No painel admin → <em>Configurar WhatsApp</em> → clique em <em>Conectar</em> e escaneie o QR Code</li>
+          <li>Teste o envio com <em>Enviar Teste</em></li>
+        </ol>
+        <h3>Mensagens enviadas</h3>
+        <ul>
+          <li>Código de verificação no cadastro</li>
+          <li>Lembretes de palpite</li>
+          <li>Resultados de rodada</li>
+          <li>Avisos de pagamento pendente</li>
+          <li>Mensagens da Central de Mensagens</li>
+        </ul>
+      </section>
+
+      <!-- ── POINTS ── -->
+      <section class="doc-section" id="svc-points">
+        <h2><i class="bi bi-calculator me-2 text-danger"></i>Serviço — Calculadora de Pontos</h2>
+        <p>Arquivo: <code>app/services/points_calculator.py</code>. Função principal: <code>calculate_points(match, prediction) → (total, winner, score_a, score_b, exact)</code>.</p>
+        <pre class="bg-dark text-white p-3 rounded small"><code>def calculate_points(match, prediction):
+    winner = 2 if acertou_vencedor_ou_empate else 0
+    score_a = 2 if pred.predicted_score_a == match.score_a else 0
+    score_b = 2 if pred.predicted_score_b == match.score_b else 0
+    exact = 2 if score_a and score_b else 0
+    total = winner + score_a + score_b + exact
+    return total, winner, score_a, score_b, exact</code></pre>
+        <p>Chamada automaticamente ao finalizar cada partida. O resultado é salvo nos campos <code>points_*</code> do model <code>Prediction</code>.</p>
+      </section>
+
+      <!-- ── STANDINGS ── -->
+      <section class="doc-section" id="svc-standings">
+        <h2><i class="bi bi-table me-2 text-danger"></i>Serviço — Classificação</h2>
+        <p>Arquivo: <code>app/services/standings_service.py</code>. Atualiza grupos e mata-mata automaticamente.</p>
+
+        <h3>Funções principais</h3>
+        <ul>
+          <li><code>update_group_standings(db, group)</code> — recalcula a tabela do grupo a partir de todos os jogos finalizados.</li>
+          <li><code>check_and_update_knockout_matches(db)</code> — quando todos os grupos são decididos, preenche as partidas dos 16 avos com 1ºs, 2ºs e melhores 3ºs.</li>
+          <li><code>update_knockout_match(db, match_number, winner, winner_code)</code> — após um jogo do mata-mata, procura no DB qual partida futura tem "Vencedor {N}" ou "W{N}" no nome do time e atualiza com o vencedor real.</li>
+          <li><code>auto_update_standings_on_match_finish(db, match)</code> — função central chamada ao finalizar qualquer jogo. Decide automaticamente o que atualizar.</li>
+        </ul>
+
+        <div class="alert alert-info small">
+          <i class="bi bi-info-circle me-2"></i>
+          <strong>Empate no mata-mata:</strong> se <code>score_a == score_b</code> e <code>penalty_winner</code> for null, o sistema aguarda e não avança nenhum time. O admin deve preencher <code>penalty_winner</code> ("A" ou "B") ao finalizar a partida.
+        </div>
+        <div class="alert alert-warning small">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          <strong>Bracket errado?</strong> Use <strong>Admin → Configurar Fase Eliminatória</strong> (<code>/admin/16avos</code>) para corrigir manualmente o nome e código dos times em qualquer fase (16 avos, oitavas, quartas, semis, 3º lugar, final).
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════ -->
+      <!-- GUIAS                                      -->
+      <!-- ══════════════════════════════════════════ -->
+
+      <!-- ── GUIA USUÁRIO ── -->
+      <section class="doc-section" id="guia-usuario">
+        <h2><i class="bi bi-person-check me-2 text-danger"></i>Guia do Usuário</h2>
+
+        <h3>1. Cadastro</h3>
+        <ol>
+          <li>Acesse <code>/cadastro</code> e preencha nome, e-mail e WhatsApp.</li>
+          <li>Confirme o código recebido no e-mail.</li>
+          <li>Opcionalmente confirme também o WhatsApp.</li>
+          <li>Aguarde o admin confirmar seu pagamento de inscrição (R$ 100).</li>
+        </ol>
+
+        <h3>2. Fazer Palpites</h3>
+        <ol>
+          <li>Acesse <code>/palpites</code>.</li>
+          <li>Selecione a rodada desejada (só aparece se o pagamento da rodada estiver confirmado).</li>
+          <li>Para cada jogo, insira o placar que acha que vai acontecer nos 90 minutos.</li>
+          <li>Clique em <em>Salvar Palpite</em>. Você pode alterar enquanto o prazo estiver aberto.</li>
+          <li>O prazo fecha automaticamente 10 minutos antes de cada partida.</li>
+        </ol>
+
+        <h3>3. Acompanhar Partidas</h3>
+        <ul>
+          <li><code>/partidas</code> — ao vivo, jogos de hoje, próximos jogos, últimos resultados.</li>
+          <li><code>/grupos</code> — classificação dos 12 grupos da Copa 2026.</li>
+        </ul>
+
+        <h3>4. Rankings</h3>
+        <ul>
+          <li><code>/ranking</code> — selecione uma rodada ou veja o ranking geral.</li>
+          <li>Pontuação máxima: 8 pontos por jogo.</li>
+          <li>Desempate: maior número de placares exatos.</li>
+        </ul>
+
+        <h3>5. PVP — Apostas Diretas</h3>
+        <ul>
+          <li>Acesse <code>/pvp</code> para desafiar outros usuários em jogos específicos.</li>
+          <li>Defina o valor apostado e quem você acha que vai ganhar.</li>
+          <li>O adversário aceita ou recusa. O resultado é determinado quando o jogo finalizar.</li>
+        </ul>
+
+        <h3>6. Transparência</h3>
+        <ul>
+          <li>Acesse <code>/transparencia</code> para ver o histórico financeiro do bolão.</li>
+        </ul>
+      </section>
+
+      <!-- ── GUIA ADMIN ── -->
+      <section class="doc-section" id="guia-admin">
+        <h2><i class="bi bi-shield-lock me-2 text-danger"></i>Guia do Administrador</h2>
+
+        <h3>Primeiro Acesso</h3>
+        <ol>
+          <li>Crie uma conta normalmente pelo cadastro.</li>
+          <li>No banco SQLite (<code>bolao.db</code>), execute: <code>UPDATE users SET is_admin=1, status='active', registration_paid=1 WHERE email='seu@email.com'</code></li>
+          <li>Faça login — o menu admin aparecerá automaticamente.</li>
+        </ol>
+
+        <h3>Popular Partidas</h3>
+        <ol>
+          <li>Acesse <code>/admin</code> → <em>Ações Rápidas</em> → <em>Popular banco de dados</em> (ou chame <code>POST /api/admin/matches/seed</code>).</li>
+          <li>Todas as 104 partidas da Copa 2026 serão criadas com datas, horários, cidades e estádios.</li>
+        </ol>
+
+        <h3>Gerenciar Pagamentos</h3>
+        <ol>
+          <li>Acesse <em>Central de Cobrança</em> (<code>/admin/cobrancas</code>).</li>
+          <li>Veja todos os usuários e o status de inscrição + cada rodada.</li>
+          <li>Clique no campo correspondente para confirmar ou registrar o pagamento.</li>
+        </ol>
+
+        <h3>Finalizar Jogos</h3>
+        <ol>
+          <li>Acesse <code>/admin</code> → <em>Gerenciar Jogos</em>.</li>
+          <li>Selecione o jogo no dropdown.</li>
+          <li>Insira o placar dos 90 minutos.</li>
+          <li>Se for mata-mata e houve empate, selecione quem avançou (pênaltis/prorrogação).</li>
+          <li>Clique em <em>Finalizar Jogo</em>. Pontos e rankings são calculados automaticamente.</li>
+        </ol>
+
+        <h3>Corrigir Bracket do Mata-mata</h3>
+        <ol>
+          <li>Acesse <code>/admin/16avos</code>.</li>
+          <li>Selecione a fase (16 Avos, Oitavas, Quartas, Semis, 3º Lugar, Final) nos botões de fase.</li>
+          <li>Edite o nome e código dos times que estão errados.</li>
+          <li>Clique em <em>Salvar Partida</em>.</li>
+        </ol>
+
+        <h3>Enviar Mensagens</h3>
+        <ol>
+          <li>Acesse <em>Central de Mensagens</em> (<code>/admin/mensagens</code>).</li>
+          <li>Crie uma mensagem com título, corpo, canal (email/WhatsApp/ambos) e destinatários (todos/pagantes/usuário específico).</li>
+          <li>Escolha enviar imediatamente ou agendar para data/hora específica.</li>
+          <li>Mensagens recorrentes (diário/semanal) também são suportadas.</li>
+        </ol>
+
+        <h3>Configurar WhatsApp</h3>
+        <ol>
+          <li>Instale a Evolution API em seu servidor.</li>
+          <li>Acesse <code>/admin/whatsapp</code> e configure a URL, instância e API Key.</li>
+          <li>Clique em <em>Conectar</em> e escaneie o QR Code com seu WhatsApp.</li>
+          <li>Use <em>Enviar Teste</em> para verificar a conexão.</li>
+        </ol>
+      </section>
+
+      <!-- ── GUIA KNOCKOUT ── -->
+      <section class="doc-section" id="guia-knockout">
+        <h2><i class="bi bi-diagram-2 me-2 text-danger"></i>Fase Eliminatória — Como Funciona</h2>
+
+        <h3>Preenchimento Automático do Bracket</h3>
+        <p>Ao finalizar um jogo da fase de grupos, o sistema verifica se todos os grupos estão definidos. Quando sim, preenche automaticamente os 16 avos de final baseado nos seguintes placeholders no seed data:</p>
+        <ul class="small">
+          <li><code>team_a = "1º Grupo A"</code>, <code>team_a_code = "1A"</code> → substituído pelo 1º do Grupo A</li>
+          <li><code>team_a = "2º Grupo B"</code>, <code>team_a_code = "2B"</code> → substituído pelo 2º do Grupo B</li>
+        </ul>
+
+        <p>Ao finalizar um jogo do mata-mata (16avos, oitavas, etc.), o sistema procura a próxima partida que contenha <code>"Vencedor {N}"</code> ou <code>"W{N}"</code> no nome do time e substitui pelo vencedor real.</p>
+
+        <h3>Quando o Bracket Fica Errado</h3>
+        <p>Isso acontece quando:</p>
+        <ul>
+          <li>A FIFA alterou os confrontos após o seed original</li>
+          <li>Os placeholders no DB não batem com o padrão esperado pelo algoritmo</li>
+          <li>O admin corrigiu os 16 avos manualmente, mas as oitavas ainda tinham placeholder antigo</li>
+        </ul>
+        <p><strong>Solução:</strong> use <code>/admin/16avos</code> para corrigir manualmente qualquer fase. O sistema de palpites funciona com o nome que estiver no banco — o que importa é que o time correto apareça antes do prazo de palpite.</p>
+
+        <h3>Regras do Mata-mata</h3>
+        <ul>
+          <li>Pontuação dos palpites: somente pelo placar dos <strong>90 minutos</strong></li>
+          <li>Prorrogação: não conta para pontos, mas pode ser o resultado real</li>
+          <li>Pênaltis: o campo <code>penalty_winner</code> define quem avança de fase (sem afetar pontuação)</li>
+          <li>Admin deve preencher <code>penalty_winner</code> ao finalizar jogos empatados</li>
+        </ul>
+
+        <h3>Fluxo Completo de uma Partida</h3>
+        <div class="bg-light border rounded p-3 small font-monospace">
+          Admin finaliza jogo<br>
+          &nbsp;&nbsp;→ <code>PUT /api/matches/{id}/score</code> com score + status=finished<br>
+          &nbsp;&nbsp;→ <code>calculate_points()</code> para cada palpite<br>
+          &nbsp;&nbsp;→ <code>auto_update_standings_on_match_finish()</code><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ Fase de grupos: <code>update_group_standings()</code> + <code>check_and_update_knockout_matches()</code><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ Mata-mata: <code>update_knockout_match()</code> (preenche próxima fase)<br>
+          &nbsp;&nbsp;→ <code>calculate_round_ranking_internal()</code><br>
+          &nbsp;&nbsp;→ <code>calculate_general_ranking_internal()</code>
+        </div>
+      </section>
+
+      <div class="alert alert-secondary mt-4 small">
+        <i class="bi bi-github me-2"></i>
+        Esta documentação é gerada manualmente e reflete o estado atual do código.
+        Para a referência interativa da API, acesse <a href="/api/swagger" target="_blank">/api/swagger</a>.
+      </div>
+
+    </main>
+  </div>
+</div>
+<script>
+const navLinks = document.querySelectorAll('.doc-sidebar .nav-link');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      navLinks.forEach(l => l.classList.remove('active'));
+      const active = document.querySelector(`.doc-sidebar a[href="#${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-10% 0px -80% 0px' });
+document.querySelectorAll('.doc-section[id]').forEach(s => observer.observe(s));
+</script>
+{% endblock %}

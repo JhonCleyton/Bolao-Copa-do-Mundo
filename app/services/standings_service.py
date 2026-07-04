@@ -278,9 +278,14 @@ def auto_update_standings_on_match_finish(db: Session, match: Match):
         elif match.score_b > match.score_a:
             winner = match.team_b
             winner_code = match.team_b_code
+        elif match.penalty_winner == "A":
+            winner = match.team_a
+            winner_code = match.team_a_code
+        elif match.penalty_winner == "B":
+            winner = match.team_b
+            winner_code = match.team_b_code
         else:
-            # Draw - would need penalty shootout data
-            # For now, skip
+            # Empate sem vencedor nos penaltis definido - aguardar
             return
         
         update_knockout_match(db, match.match_number, winner, winner_code)

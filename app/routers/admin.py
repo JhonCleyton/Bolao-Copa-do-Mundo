@@ -8,6 +8,7 @@ from app.database import get_db
 from app.models import User, Match, Prediction, Payment, MatchStatus, CarouselImage, LandingPageConfig, UserStatus
 from app.schemas import UserResponse, PaymentResponse, DashboardStats
 from app.auth import get_current_admin
+from app.utils.timezone import get_brasilia_now
 
 router = APIRouter()
 
@@ -366,7 +367,7 @@ def get_matches_without_predictions(
     from datetime import datetime, timedelta
     
     # Get upcoming matches
-    now = datetime.utcnow()
+    now = get_brasilia_now()
     upcoming = db.query(Match).filter(
         Match.match_date > now,
         Match.status == MatchStatus.SCHEDULED
@@ -1056,3 +1057,389 @@ def delete_carousel_image(
     db.delete(image)
     db.commit()
     return {"message": "Image deleted successfully"}
+
+
+# ============================================================================
+# Admin: Estender prazo de palpite e lançar palpite por usuário
+# ============================================================================
+
+class MatchDeadlineRequest(BaseModel):
+    """Define ou limpa o prazo (override) para palpites de uma partida.
+
+    - prediction_deadline = None  -> remove o override (volta a usar match_date - 10min)
+    - prediction_deadline = datetime  -> palpites permitidos ate esse instante (Brasilia)
+    """
+    prediction_deadline: Optional[datetime] = None
+
+
+@router.put("/matches/{match_id}/deadline")
+def set_match_prediction_deadline(
+    match_id: int,
+    data: MatchDeadlineRequest,
+    current_user = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Define/limpa um prazo customizado de palpite para a partida (horario de Brasilia)."""
+    from datetime import timezone, timedelta
+    
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Partida nao encontrada")
+
+    # Se recebeu um datetime, garantir que fique em horario de Brasilia (UTC-3)
+    if data.prediction_deadline:
+        # Se tem timezone info, converte para Brasilia (UTC-3)
+        if data.prediction_deadline.tzinfo:
+            brasilia_tz = timezone(timedelta(hours=-3))
+            deadline = data.prediction_deadline.astimezone(brasilia_tz).replace(tzinfo=None)
+        else:
+            # Sem timezone, assume que ja esta em horario de Brasilia
+            deadline = data.prediction_deadline
+        match.prediction_deadline = deadline
+    else:
+        match.prediction_deadline = None
+    
+    match.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(match)
+
+    return {
+        "message": "Prazo atualizado com sucesso",
+        "match_id": match.id,
+        "match_date": match.match_date.isoformat() if match.match_date else None,
+        "prediction_deadline": match.prediction_deadline.isoformat() if match.prediction_deadline else None,
+    }
+
+
+@router.delete("/matches/{match_id}/deadline")
+def clear_match_prediction_deadline(
+    match_id: int,
+    current_user = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Remove o prazo customizado, voltando ao padrao (10 minutos antes do jogo)."""
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Partida nao encontrada")
+
+    match.prediction_deadline = None
+    match.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(match)
+
+    return {"message": "Prazo customizado removido", "match_id": match.id}
+
+
+class AdminPredictionRequest(BaseModel):
+    """Lancamento de palpite pelo admin em nome de um usuario.
+    Bypassa as verificacoes de prazo e pagamento.
+    """
+    user_id: int
+    match_id: int
+    predicted_score_a: int
+    predicted_score_b: int
+
+
+@router.post("/predictions")
+def admin_create_or_update_prediction(
+    data: AdminPredictionRequest,
+    current_user = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Cria ou atualiza um palpite em nome de um usuario, ignorando prazos e pagamentos.
+
+    Util para lancar palpite a qualquer momento (antes ou apos o prazo).
+    Se a partida ja estiver finalizada, recalcula a pontuacao do palpite.
+    """
+    user = db.query(User).filter(User.id == data.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario nao encontrado")
+
+    match = db.query(Match).filter(Match.id == data.match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Partida nao encontrada")
+
+    if data.predicted_score_a < 0 or data.predicted_score_b < 0:
+        raise HTTPException(status_code=400, detail="Placar nao pode ser negativo")
+    if data.predicted_score_a > 20 or data.predicted_score_b > 20:
+        raise HTTPException(status_code=400, detail="Placar maximo permitido: 20")
+
+    prediction = db.query(Prediction).filter(
+        Prediction.user_id == data.user_id,
+        Prediction.match_id == data.match_id
+    ).first()
+
+    created = False
+    if prediction:
+        prediction.predicted_score_a = data.predicted_score_a
+        prediction.predicted_score_b = data.predicted_score_b
+    else:
+        prediction = Prediction(
+            user_id=data.user_id,
+            match_id=data.match_id,
+            predicted_score_a=data.predicted_score_a,
+            predicted_score_b=data.predicted_score_b,
+        )
+        db.add(prediction)
+        created = True
+
+    db.commit()
+    db.refresh(prediction)
+
+    # Se a partida ja terminou, recalcula pontos para esse palpite
+    if match.status == MatchStatus.FINISHED and match.score_a is not None and match.score_b is not None:
+        from app.services.points_calculator import calculate_points
+        total, winner, score_a, score_b, exact = calculate_points(match, prediction)
+        prediction.points_earned = total
+        prediction.points_winner = winner
+        prediction.points_score_a = score_a
+        prediction.points_score_b = score_b
+        prediction.points_exact = exact
+        db.commit()
+        db.refresh(prediction)
+
+        # Atualiza ranking da rodada e geral
+        try:
+            from app.routers.rankings import calculate_round_ranking_internal, calculate_general_ranking_internal
+            if match.round_number:
+                calculate_round_ranking_internal(match.round_number, db)
+            calculate_general_ranking_internal(db)
+        except Exception as e:
+            print(f"[admin_create_prediction] erro ao recalcular ranking: {e}")
+
+    return {
+        "message": "Palpite registrado com sucesso" if created else "Palpite atualizado com sucesso",
+        "created": created,
+        "prediction": {
+            "id": prediction.id,
+            "user_id": prediction.user_id,
+            "match_id": prediction.match_id,
+            "predicted_score_a": prediction.predicted_score_a,
+            "predicted_score_b": prediction.predicted_score_b,
+            "points_earned": prediction.points_earned,
+        },
+    }
+
+
+@router.get("/predictions/match/{match_id}")
+def admin_list_predictions_for_match(
+    match_id: int,
+    current_user = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Lista todos os palpites lancados em uma partida (com nome do usuario)."""
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Partida nao encontrada")
+
+    rows = db.query(Prediction, User).join(
+        User, Prediction.user_id == User.id
+    ).filter(Prediction.match_id == match_id).order_by(User.full_name).all()
+
+    return {
+        "match": {
+            "id": match.id,
+            "team_a": match.team_a,
+            "team_b": match.team_b,
+            "match_date": match.match_date.isoformat() if match.match_date else None,
+            "status": match.status.value if hasattr(match.status, "value") else match.status,
+        },
+        "predictions": [
+            {
+                "user_id": user.id,
+                "user_name": user.full_name,
+                "user_email": user.email,
+                "predicted_score_a": pred.predicted_score_a,
+                "predicted_score_b": pred.predicted_score_b,
+                "points_earned": pred.points_earned,
+                "created_at": pred.created_at.isoformat() if pred.created_at else None,
+            }
+            for pred, user in rows
+        ],
+    }
+
+
+# ============================================================================
+# Admin: Configurar partidas dos 16 avos de final
+# ============================================================================
+
+class MatchUpdateRequest(BaseModel):
+    team_a: Optional[str] = None
+    team_b: Optional[str] = None
+    team_a_code: Optional[str] = None
+    team_b_code: Optional[str] = None
+    match_date: Optional[datetime] = None
+    local_time: Optional[str] = None
+    brasilia_time: Optional[str] = None
+    city: Optional[str] = None
+    stadium: Optional[str] = None
+
+
+@router.get("/matches/round-of-32")
+def get_round_of_32_matches(
+    current_user = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Retorna todas as partidas dos 16 avos de final"""
+    from app.models import Stage
+    matches = db.query(Match).filter(
+        Match.stage == Stage.ROUND_OF_32
+    ).order_by(Match.match_number).all()
+
+    return [
+        {
+            "id": m.id,
+            "match_number": m.match_number,
+            "team_a": m.team_a,
+            "team_b": m.team_b,
+            "team_a_code": m.team_a_code,
+            "team_b_code": m.team_b_code,
+            "match_date": m.match_date.isoformat() if m.match_date else None,
+            "local_time": m.local_time,
+            "brasilia_time": m.brasilia_time,
+            "city": m.city,
+            "stadium": m.stadium,
+            "status": m.status.value if hasattr(m.status, "value") else m.status,
+            "round_number": m.round_number,
+        }
+        for m in matches
+    ]
+
+
+STAGE_LABEL_MAP = {
+    "round_of_32": "16 Avos de Final",
+    "round_of_16": "Oitavas de Final",
+    "quarter_final": "Quartas de Final",
+    "semi_final": "Semifinais",
+    "third_place": "Disputa 3º Lugar",
+    "final": "Final",
+}
+
+
+@router.get("/matches/knockout")
+def get_knockout_matches_by_stage(
+    stage: str = "round_of_32",
+    current_user = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Retorna partidas de qualquer fase eliminatória, filtrando pelo parâmetro stage."""
+    from app.models import Stage as StageEnum
+
+    stage_map = {
+        "round_of_32": StageEnum.ROUND_OF_32,
+        "round_of_16": StageEnum.ROUND_OF_16,
+        "quarter_final": StageEnum.QUARTER_FINAL,
+        "semi_final": StageEnum.SEMI_FINAL,
+        "third_place": StageEnum.THIRD_PLACE,
+        "final": StageEnum.FINAL,
+    }
+
+    if stage not in stage_map:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Stage inválido. Use: {', '.join(stage_map.keys())}"
+        )
+
+    matches = db.query(Match).filter(
+        Match.stage == stage_map[stage]
+    ).order_by(Match.match_number).all()
+
+    return {
+        "stage": stage,
+        "stage_label": STAGE_LABEL_MAP.get(stage, stage),
+        "matches": [
+            {
+                "id": m.id,
+                "match_number": m.match_number,
+                "team_a": m.team_a,
+                "team_b": m.team_b,
+                "team_a_code": m.team_a_code,
+                "team_b_code": m.team_b_code,
+                "match_date": m.match_date.isoformat() if m.match_date else None,
+                "local_time": m.local_time,
+                "brasilia_time": m.brasilia_time,
+                "city": m.city,
+                "stadium": m.stadium,
+                "status": m.status.value if hasattr(m.status, "value") else m.status,
+                "score_a": m.score_a,
+                "score_b": m.score_b,
+                "penalty_winner": m.penalty_winner,
+                "round_number": m.round_number,
+            }
+            for m in matches
+        ]
+    }
+
+
+@router.put("/matches/{match_id}")
+def update_match(
+    match_id: int,
+    data: MatchUpdateRequest,
+    current_user = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Atualiza dados de uma partida (times, data, horario, local)"""
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Partida nao encontrada")
+
+    if data.team_a is not None:
+        match.team_a = data.team_a
+    if data.team_b is not None:
+        match.team_b = data.team_b
+    if data.team_a_code is not None:
+        match.team_a_code = data.team_a_code
+    if data.team_b_code is not None:
+        match.team_b_code = data.team_b_code
+    if data.match_date is not None:
+        match.match_date = data.match_date
+    if data.local_time is not None:
+        match.local_time = data.local_time
+    if data.brasilia_time is not None:
+        match.brasilia_time = data.brasilia_time
+    if data.city is not None:
+        match.city = data.city
+    if data.stadium is not None:
+        match.stadium = data.stadium
+
+    match.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(match)
+
+    return {
+        "message": "Partida atualizada com sucesso",
+        "match": {
+            "id": match.id,
+            "match_number": match.match_number,
+            "team_a": match.team_a,
+            "team_b": match.team_b,
+            "team_a_code": match.team_a_code,
+            "team_b_code": match.team_b_code,
+            "match_date": match.match_date.isoformat() if match.match_date else None,
+            "local_time": match.local_time,
+            "brasilia_time": match.brasilia_time,
+            "city": match.city,
+            "stadium": match.stadium,
+        }
+    }
+
+
+@router.delete("/predictions/{user_id}/{match_id}")
+def admin_delete_prediction(
+    user_id: int,
+    match_id: int,
+    current_user = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Remove um palpite especifico de um usuario para uma partida."""
+    prediction = db.query(Prediction).filter(
+        Prediction.user_id == user_id,
+        Prediction.match_id == match_id
+    ).first()
+    if not prediction:
+        raise HTTPException(status_code=404, detail="Palpite nao encontrado")
+
+    db.delete(prediction)
+    db.commit()
+    return {"message": "Palpite removido com sucesso"}
+

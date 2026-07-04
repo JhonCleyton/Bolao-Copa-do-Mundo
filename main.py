@@ -5,7 +5,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from contextlib import asynccontextmanager
 
-from app.database import engine, Base
+from app.database import engine, Base, run_migrations
 from app.routers import auth, users, matches, predictions, rankings, admin, notifications, groq, messages, pvp, live_data
 from app.services.scheduler import start_scheduler, stop_scheduler
 
@@ -14,6 +14,7 @@ from app.services.scheduler import start_scheduler, stop_scheduler
 async def lifespan(app: FastAPI):
     # Startup
     Base.metadata.create_all(bind=engine)
+    run_migrations()
     start_scheduler()
     yield
     # Shutdown
@@ -24,7 +25,9 @@ app = FastAPI(
     title="Bolão Copa 2026",
     description="Sistema de bolão para a Copa do Mundo 2026",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url="/api/swagger",
+    redoc_url="/api/redoc"
 )
 
 # Templates
@@ -121,6 +124,16 @@ async def admin_mensagens(request: Request):
     return templates.TemplateResponse("mensagens.html", {"request": request})
 
 
+@app.get("/admin/palpites", response_class=HTMLResponse)
+async def admin_palpites(request: Request):
+    return templates.TemplateResponse("admin_palpites.html", {"request": request})
+
+
+@app.get("/admin/16avos", response_class=HTMLResponse)
+async def admin_16avos(request: Request):
+    return templates.TemplateResponse("admin_16avos.html", {"request": request})
+
+
 @app.get("/recuperar-senha", response_class=HTMLResponse)
 async def forgot_password_page(request: Request):
     return templates.TemplateResponse("forgot_password.html", {"request": request})
@@ -144,6 +157,11 @@ async def pvp_page(request: Request):
 @app.get("/partidas", response_class=HTMLResponse)
 async def partidas_page(request: Request):
     return templates.TemplateResponse("partidas.html", {"request": request})
+
+
+@app.get("/docs", response_class=HTMLResponse)
+async def docs_page(request: Request):
+    return templates.TemplateResponse("docs.html", {"request": request})
 
 
 if __name__ == "__main__":

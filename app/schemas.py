@@ -111,21 +111,27 @@ class MatchUpdateScore(BaseModel):
     score_a: int
     score_b: int
     status: MatchStatus
+    penalty_winner: Optional[str] = None  # "A" ou "B" - vencedor nos penaltis
 
 
 class MatchResponse(MatchBase):
     id: int
+    stage: Optional[str] = None
     status: MatchStatus
     score_a: Optional[int] = None
     score_b: Optional[int] = None
+    penalty_winner: Optional[str] = None
+    prediction_deadline: Optional[datetime] = None
     created_at: datetime
     
     class Config:
         from_attributes = True
     
-    @field_serializer('match_date', 'created_at')
+    @field_serializer('match_date', 'created_at', 'prediction_deadline')
     def serialize_datetime(self, dt: datetime) -> str:
         # Retorna formato ISO sem 'Z' para indicar horário local (Brasília)
+        if dt is None:
+            return None
         return dt.strftime('%Y-%m-%dT%H:%M:%S')
 
 

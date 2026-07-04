@@ -458,11 +458,26 @@ function renderMatches() {
 }
 
 function renderMatchCard(match) {
-    // Data já está em horário de Brasília, não tratar como UTC
-    const clean = match.match_date.replace('Z', '');
-    const matchDate = new Date(clean);
-    const deadline = new Date(matchDate.getTime() - 10 * 60 * 1000);
-    const canPredict = new Date() < deadline;
+    // Verificar se há prazo customizado do admin (prediction_deadline)
+    let deadline;
+    let deadlineSource;
+    
+    if (match.prediction_deadline) {
+        // Usar prazo extendido pelo admin
+        deadline = new Date(match.prediction_deadline);
+        deadlineSource = 'admin';
+    } else {
+        // Usar prazo padrão (10 min antes do jogo)
+        const [hours, minutes] = (match.brasilia_time || '00:00').split(':');
+        const matchDate = new Date(match.match_date);
+        matchDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        deadline = new Date(matchDate.getTime() - 10 * 60 * 1000);
+        deadlineSource = 'default';
+    }
+    
+    // Comparar deadline com horário atual
+    const now = new Date();
+    const canPredict = now < deadline;
     const prediction = myPredictions[match.id];
     
     const flagA = getFlagImage(match.team_a_code, '2.5rem');

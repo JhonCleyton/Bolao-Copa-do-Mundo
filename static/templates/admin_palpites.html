@@ -1,0 +1,508 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - Palpites e Prazos - Bolão Copa 2026{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 px-lg-5 py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <h2 class="mb-0">
+            <i class="bi bi-pencil-square me-2"></i>Gerenciar Palpites e Prazos
+        </h2>
+        <a href="/admin" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Voltar
+        </a>
+    </div>
+
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>
+        Aqui você pode <strong>estender o prazo de palpite</strong> de uma partida e
+        <strong>lançar palpites em nome de qualquer usuário</strong> a qualquer momento.
+    </div>
+
+    <div class="row g-4">
+        <!-- Estender Prazo de Palpite -->
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header bg-warning">
+                    <i class="bi bi-clock-history me-2"></i>
+                    <strong>Estender Prazo de Palpite</strong>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small">
+                        Por padrão o prazo é <strong>10 minutos antes do jogo</strong>.
+                        Aqui você pode definir um prazo customizado (ex: depois do início do jogo).
+                    </p>
+
+                    <div class="mb-3">
+                        <label class="form-label">Partida</label>
+                        <select class="form-select" id="deadline-match-select">
+                            <option value="">Selecione uma partida...</option>
+                        </select>
+                    </div>
+
+                    <div id="deadline-match-info" class="alert alert-light border d-none">
+                        <div class="row small">
+                            <div class="col-6">
+                                <strong>Início do jogo:</strong>
+                                <div id="deadline-info-match-date">-</div>
+                            </div>
+                            <div class="col-6">
+                                <strong>Prazo atual:</strong>
+                                <div id="deadline-info-current">-</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Novo prazo (horário de Brasília)</label>
+                        <input type="datetime-local" class="form-control" id="deadline-input">
+                        <small class="text-muted">
+                            Ex: definir alguns minutos depois do início para liberar palpites de última hora.
+                        </small>
+                    </div>
+
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button class="btn btn-warning" onclick="saveDeadline()">
+                            <i class="bi bi-save me-1"></i>Salvar Novo Prazo
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="clearDeadline()">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Voltar ao Padrão
+                        </button>
+                        <button class="btn btn-outline-primary" onclick="quickExtend(15)">
+                            +15 min
+                        </button>
+                        <button class="btn btn-outline-primary" onclick="quickExtend(30)">
+                            +30 min
+                        </button>
+                        <button class="btn btn-outline-primary" onclick="quickExtend(60)">
+                            +1 hora
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lançar Palpite -->
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-send me-2"></i>
+                    <strong>Lançar Palpite por Usuário</strong>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small">
+                        Lança ou atualiza um palpite em nome de um usuário a qualquer momento,
+                        ignorando prazos e pagamentos. Se a partida já tiver finalizado,
+                        a pontuação é recalculada automaticamente.
+                    </p>
+
+                    <div class="mb-3">
+                        <label class="form-label">Partida</label>
+                        <select class="form-select" id="pred-match-select">
+                            <option value="">Selecione uma partida...</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Usuário</label>
+                        <input type="text" class="form-control mb-2" id="pred-user-search" placeholder="Buscar usuário por nome ou email...">
+                        <select class="form-select" id="pred-user-select" size="6">
+                            <option value="">Selecione um usuário...</option>
+                        </select>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-5">
+                            <label class="form-label small" id="pred-team-a-label">Time A</label>
+                            <input type="number" min="0" max="20" class="form-control text-center fs-4" id="pred-score-a" value="0">
+                        </div>
+                        <div class="col-2 d-flex align-items-end justify-content-center pb-2">
+                            <strong>×</strong>
+                        </div>
+                        <div class="col-5">
+                            <label class="form-label small" id="pred-team-b-label">Time B</label>
+                            <input type="number" min="0" max="20" class="form-control text-center fs-4" id="pred-score-b" value="0">
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary w-100" onclick="submitAdminPrediction()">
+                        <i class="bi bi-check2-circle me-1"></i>Lançar Palpite
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Palpites Existentes da Partida -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-list-ul me-2"></i>Palpites lançados na partida selecionada</span>
+                    <button class="btn btn-sm btn-outline-light" onclick="reloadPredictions()">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="predictions-list-empty" class="text-center text-muted py-4">
+                        Selecione uma partida acima para ver os palpites já lançados.
+                    </div>
+                    <div class="table-responsive d-none" id="predictions-table-wrapper">
+                        <table class="table table-sm table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Usuário</th>
+                                    <th>Email</th>
+                                    <th class="text-center">Palpite</th>
+                                    <th class="text-center">Pontos</th>
+                                    <th>Data</th>
+                                    <th class="text-end">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="predictions-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allMatches = [];
+let allUsers = [];
+let selectedPredictionMatchId = null;
+
+document.addEventListener('DOMContentLoaded', async function() {
+    await checkAdminAccess();
+    await Promise.all([loadMatchesIntoSelects(), loadUsersIntoSelect()]);
+
+    document.getElementById('deadline-match-select').addEventListener('change', onDeadlineMatchChange);
+    document.getElementById('pred-match-select').addEventListener('change', onPredMatchChange);
+    document.getElementById('pred-user-search').addEventListener('input', filterUsers);
+});
+
+async function checkAdminAccess() {
+    const token = localStorage.getItem('token');
+    if (!token) { window.location.href = '/login?redirect=/admin/palpites'; return; }
+    try {
+        const r = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!r.ok) { window.location.href = '/login?redirect=/admin/palpites'; return; }
+        const u = await r.json();
+        if (!u.is_admin) {
+            showToast('Acesso negado', 'Você não é administrador', 'danger');
+            window.location.href = '/';
+        }
+    } catch {
+        window.location.href = '/login?redirect=/admin/palpites';
+    }
+}
+
+async function loadMatchesIntoSelects() {
+    try {
+        const r = await fetch('/api/matches/');
+        const matches = await r.json();
+        allMatches = matches;
+
+        const selects = ['deadline-match-select', 'pred-match-select'];
+        selects.forEach(id => {
+            const sel = document.getElementById(id);
+            sel.innerHTML = '<option value="">Selecione uma partida...</option>';
+            matches.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.id;
+                const date = formatDateTimeBR(m.match_date);
+                const status = statusLabel(m.status);
+                opt.textContent = `${m.team_a} x ${m.team_b} — ${date} [${status}]`;
+                sel.appendChild(opt);
+            });
+        });
+    } catch (e) {
+        console.error(e);
+        showToast('Erro', 'Falha ao carregar partidas', 'danger');
+    }
+}
+
+async function loadUsersIntoSelect() {
+    const token = localStorage.getItem('token');
+    try {
+        const r = await fetch('/api/admin/users', { headers: { 'Authorization': `Bearer ${token}` } });
+        const users = await r.json();
+        allUsers = users;
+        renderUsersSelect(users);
+    } catch (e) {
+        console.error(e);
+        showToast('Erro', 'Falha ao carregar usuários', 'danger');
+    }
+}
+
+function renderUsersSelect(users) {
+    const sel = document.getElementById('pred-user-select');
+    sel.innerHTML = '';
+    if (users.length === 0) {
+        sel.innerHTML = '<option value="">Nenhum usuário encontrado</option>';
+        return;
+    }
+    users.forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.id;
+        opt.textContent = `${u.full_name} — ${u.email}`;
+        sel.appendChild(opt);
+    });
+}
+
+function filterUsers() {
+    const q = document.getElementById('pred-user-search').value.toLowerCase().trim();
+    if (!q) { renderUsersSelect(allUsers); return; }
+    const filtered = allUsers.filter(u =>
+        (u.full_name || '').toLowerCase().includes(q) ||
+        (u.email || '').toLowerCase().includes(q)
+    );
+    renderUsersSelect(filtered);
+}
+
+function statusLabel(s) {
+    return ({ scheduled: 'Agendado', live: 'Ao Vivo', finished: 'Finalizado', postponed: 'Adiado' })[s] || s;
+}
+
+function onDeadlineMatchChange() {
+    const id = parseInt(document.getElementById('deadline-match-select').value, 10);
+    const info = document.getElementById('deadline-match-info');
+    if (!id) { info.classList.add('d-none'); return; }
+    const m = allMatches.find(x => x.id === id);
+    if (!m) return;
+    info.classList.remove('d-none');
+    document.getElementById('deadline-info-match-date').textContent = formatDateTimeBR(m.match_date);
+    if (m.prediction_deadline) {
+        document.getElementById('deadline-info-current').innerHTML =
+            `<span class="text-warning">${formatDateTimeBR(m.prediction_deadline)} (customizado)</span>`;
+        document.getElementById('deadline-input').value = toDatetimeLocalValue(m.prediction_deadline);
+    } else {
+        const def = defaultDeadline(m.match_date);
+        document.getElementById('deadline-info-current').innerHTML =
+            `<span class="text-muted">${formatDateTimeBR(def)} (padrão: -10min)</span>`;
+        document.getElementById('deadline-input').value = toDatetimeLocalValue(def);
+    }
+}
+
+function defaultDeadline(matchDate) {
+    // Interpretar a data em timezone de Brasília
+    const clean = matchDate.replace('Z', '').replace(/[+-]\d{2}:\d{2}$/, '');
+    const d = new Date(clean + '-03:00');
+    d.setMinutes(d.getMinutes() - 10);
+    return d.toISOString();
+}
+
+function toDatetimeLocalValue(iso) {
+    if (!iso) return '';
+    // Garantir que a data seja interpretada em timezone de Brasília (UTC-3)
+    const clean = iso.replace('Z', '');
+    // Se já tiver timezone, removemos para criar a data
+    const withoutTz = clean.replace(/[+-]\d{2}:\d{2}$/, '');
+    const d = new Date(withoutTz + '-03:00');
+    if (isNaN(d.getTime())) return '';
+    // Converter para o formato do input datetime-local (hora local do navegador)
+    // Precisamos ajustar porque o input espera hora local
+    const pad = n => String(n).padStart(2, '0');
+    const localD = new Date(d.getTime() + (d.getTimezoneOffset() + 180) * 60 * 1000);
+    return `${localD.getFullYear()}-${pad(localD.getMonth()+1)}-${pad(localD.getDate())}T${pad(localD.getHours())}:${pad(localD.getMinutes())}`;
+}
+
+async function saveDeadline() {
+    const matchId = parseInt(document.getElementById('deadline-match-select').value, 10);
+    const value = document.getElementById('deadline-input').value;
+    if (!matchId) return showToast('Atenção', 'Selecione uma partida', 'warning');
+    if (!value) return showToast('Atenção', 'Informe a data e hora do novo prazo', 'warning');
+
+    const token = localStorage.getItem('token');
+    try {
+        // Adicionar timezone de Brasília (-03:00) ao valor do datetime-local
+        const valueWithTz = value + '-03:00';
+        const r = await fetch(`/api/admin/matches/${matchId}/deadline`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ prediction_deadline: valueWithTz })
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.detail || 'Erro ao salvar prazo');
+        showToast('Sucesso', 'Prazo atualizado!', 'success');
+        await loadMatchesIntoSelects();
+        document.getElementById('deadline-match-select').value = matchId;
+        onDeadlineMatchChange();
+    } catch (e) {
+        showToast('Erro', e.message, 'danger');
+    }
+}
+
+async function clearDeadline() {
+    const matchId = parseInt(document.getElementById('deadline-match-select').value, 10);
+    if (!matchId) return showToast('Atenção', 'Selecione uma partida', 'warning');
+    if (!confirm('Remover o prazo customizado e voltar ao padrão (10 min antes do jogo)?')) return;
+
+    const token = localStorage.getItem('token');
+    try {
+        const r = await fetch(`/api/admin/matches/${matchId}/deadline`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!r.ok) {
+            const data = await r.json();
+            throw new Error(data.detail || 'Erro ao remover prazo');
+        }
+        showToast('Sucesso', 'Prazo customizado removido', 'success');
+        await loadMatchesIntoSelects();
+        document.getElementById('deadline-match-select').value = matchId;
+        onDeadlineMatchChange();
+    } catch (e) {
+        showToast('Erro', e.message, 'danger');
+    }
+}
+
+function quickExtend(minutes) {
+    const matchId = parseInt(document.getElementById('deadline-match-select').value, 10);
+    if (!matchId) return showToast('Atenção', 'Selecione uma partida', 'warning');
+    const m = allMatches.find(x => x.id === matchId);
+    if (!m) return;
+    // Interpretar a data em timezone de Brasília
+    const clean = (m.match_date || '').replace('Z', '').replace(/[+-]\d{2}:\d{2}$/, '');
+    const base = new Date(clean + '-03:00');
+    base.setMinutes(base.getMinutes() + minutes);
+    document.getElementById('deadline-input').value = toDatetimeLocalValue(base.toISOString());
+    saveDeadline();
+}
+
+function onPredMatchChange() {
+    const id = parseInt(document.getElementById('pred-match-select').value, 10);
+    selectedPredictionMatchId = id || null;
+    const m = allMatches.find(x => x.id === id);
+    if (m) {
+        document.getElementById('pred-team-a-label').textContent = m.team_a;
+        document.getElementById('pred-team-b-label').textContent = m.team_b;
+    } else {
+        document.getElementById('pred-team-a-label').textContent = 'Time A';
+        document.getElementById('pred-team-b-label').textContent = 'Time B';
+    }
+    reloadPredictions();
+}
+
+async function reloadPredictions() {
+    const id = selectedPredictionMatchId;
+    const empty = document.getElementById('predictions-list-empty');
+    const wrap = document.getElementById('predictions-table-wrapper');
+    const tbody = document.getElementById('predictions-tbody');
+    if (!id) { empty.classList.remove('d-none'); wrap.classList.add('d-none'); return; }
+
+    const token = localStorage.getItem('token');
+    try {
+        const r = await fetch(`/api/admin/predictions/match/${id}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!r.ok) throw new Error('Erro ao listar palpites');
+        const data = await r.json();
+        const preds = data.predictions || [];
+        if (preds.length === 0) {
+            tbody.innerHTML = '';
+            empty.textContent = 'Nenhum palpite lançado nesta partida ainda.';
+            empty.classList.remove('d-none');
+            wrap.classList.add('d-none');
+            return;
+        }
+        empty.classList.add('d-none');
+        wrap.classList.remove('d-none');
+        tbody.innerHTML = preds.map(p => `
+            <tr>
+                <td>${escapeHtml(p.user_name || '')}</td>
+                <td class="small text-muted">${escapeHtml(p.user_email || '')}</td>
+                <td class="text-center fw-bold">${p.predicted_score_a} × ${p.predicted_score_b}</td>
+                <td class="text-center"><span class="badge bg-success">${p.points_earned || 0}</span></td>
+                <td class="small">${p.created_at ? formatDateTimeBR(p.created_at) : '-'}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary" onclick="loadPredIntoForm(${p.user_id}, ${p.predicted_score_a}, ${p.predicted_score_b})" title="Editar">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deletePrediction(${p.user_id})" title="Remover">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        showToast('Erro', e.message, 'danger');
+    }
+}
+
+function loadPredIntoForm(userId, a, b) {
+    document.getElementById('pred-user-select').value = userId;
+    document.getElementById('pred-score-a').value = a;
+    document.getElementById('pred-score-b').value = b;
+    showToast('Edição', 'Palpite carregado no formulário. Ajuste e clique em "Lançar Palpite".', 'info');
+}
+
+async function deletePrediction(userId) {
+    if (!selectedPredictionMatchId) return;
+    if (!confirm('Tem certeza que deseja remover este palpite?')) return;
+    const token = localStorage.getItem('token');
+    try {
+        const r = await fetch(`/api/admin/predictions/${userId}/${selectedPredictionMatchId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!r.ok) {
+            const d = await r.json();
+            throw new Error(d.detail || 'Erro ao remover');
+        }
+        showToast('Sucesso', 'Palpite removido', 'success');
+        reloadPredictions();
+    } catch (e) {
+        showToast('Erro', e.message, 'danger');
+    }
+}
+
+async function submitAdminPrediction() {
+    const matchId = parseInt(document.getElementById('pred-match-select').value, 10);
+    const userId = parseInt(document.getElementById('pred-user-select').value, 10);
+    const scoreA = parseInt(document.getElementById('pred-score-a').value, 10);
+    const scoreB = parseInt(document.getElementById('pred-score-b').value, 10);
+
+    if (!matchId) return showToast('Atenção', 'Selecione a partida', 'warning');
+    if (!userId) return showToast('Atenção', 'Selecione o usuário', 'warning');
+    if (isNaN(scoreA) || isNaN(scoreB) || scoreA < 0 || scoreB < 0) {
+        return showToast('Atenção', 'Placar inválido', 'warning');
+    }
+
+    const token = localStorage.getItem('token');
+    try {
+        const r = await fetch('/api/admin/predictions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({
+                user_id: userId,
+                match_id: matchId,
+                predicted_score_a: scoreA,
+                predicted_score_b: scoreB
+            })
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.detail || 'Erro ao lançar palpite');
+        showToast('Sucesso', data.message || 'Palpite registrado', 'success');
+        reloadPredictions();
+    } catch (e) {
+        showToast('Erro', e.message, 'danger');
+    }
+}
+
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function showToast(title, msg, type='info') {
+    const toastEl = document.getElementById('toast');
+    document.getElementById('toast-title').textContent = title;
+    document.getElementById('toast-message').textContent = msg;
+    toastEl.className = 'toast align-items-center text-bg-' + (type === 'danger' ? 'danger' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'info');
+    new bootstrap.Toast(toastEl).show();
+}
+</script>
+{% endblock %}

@@ -8,6 +8,7 @@ from app.models import Prediction, Match, MatchStatus, Payment, User
 from app.schemas import PredictionCreate, PredictionResponse
 from app.auth import get_current_user
 from app.services.points_calculator import get_points_breakdown
+from app.utils.timezone import get_brasilia_now
 
 router = APIRouter()
 
@@ -15,21 +16,31 @@ router = APIRouter()
 PREDICTION_DEADLINE_MINUTES = 10  # Minutes before match when predictions are locked
 
 def check_can_predict(db: Session, user_id: int, match: Match):
-    """Check if user can make prediction (paid and before match with 10min deadline)"""
-    # Check if match already started or finished
-    if match.status != MatchStatus.SCHEDULED:
-        return False, "Este jogo não está mais aberto para palpites"
+    """Check if user can make prediction (paid and before match with deadline)"""
+    now = get_brasilia_now()
     
-    now = datetime.utcnow()
-    deadline = match.match_date - timedelta(minutes=PREDICTION_DEADLINE_MINUTES)
-    
-    # Check if within 10 minutes of match start
-    if now >= deadline:
-        return False, "Palpites encerrados: faltam menos de 10 minutos para o jogo"
-    
-    # Check if match already started
-    if now >= match.match_date:
-        return False, "Palpites encerrados: o jogo já começou"
+    # Admin pode sobrescrever o prazo via match.prediction_deadline
+    # Se houver prazo customizado, ele tem prioridade absoluta
+    if match.prediction_deadline is not None:
+        if now >= match.prediction_deadline:
+            return False, "Palpites encerrados: prazo definido pelo administrador expirou"
+        # Se ainda está dentro do prazo extendido, permite palpitar
+        # (mesmo que o jogo já tenha começado ou esteja ao vivo)
+        pass  # Continua para verificar pagamento
+    else:
+        # Sem prazo customizado - usar regras normais
+        # Check if match finished
+        if match.status == MatchStatus.FINISHED:
+            return False, "Este jogo já foi finalizado"
+        
+        # Check default deadline (10 min before match)
+        deadline = match.match_date - timedelta(minutes=PREDICTION_DEADLINE_MINUTES)
+        if now >= deadline:
+            return False, "Palpites encerrados: faltam menos de 10 minutos para o jogo"
+        
+        # Check if match already started (ao vivo)
+        if now >= match.match_date:
+            return False, "Palpites encerrados: o jogo já começou"
     
     # Check if user paid for registration
     user = db.query(User).filter(User.id == user_id).first()
@@ -51,7 +62,9 @@ def check_can_predict(db: Session, user_id: int, match: Match):
 
 
 def get_prediction_deadline(match: Match) -> datetime:
-    """Get the prediction deadline (10 minutes before match)"""
+    """Get the prediction deadline (override or 10 minutes before match)"""
+    if match.prediction_deadline is not None:
+        return match.prediction_deadline
     return match.match_date - timedelta(minutes=PREDICTION_DEADLINE_MINUTES)
 
 
@@ -249,8 +262,7 @@ def get_round_predictions_transparency(
     from app.models import Match
     
     matches = db.query(Match).filter(
-        Match.round_number == round_number,
-        Match.stage == 'group_stage'
+        Match.round_number == round_number
     ).all()
     
     result = {}

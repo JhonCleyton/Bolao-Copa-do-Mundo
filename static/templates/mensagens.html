@@ -145,6 +145,11 @@
                                     <i class="bi bi-book me-1"></i><strong>Regras do bolão</strong>
                                     <div class="small text-muted">Reforce as regras</div>
                                 </button>
+                                <hr class="my-2">
+                                <button class="btn btn-outline-success text-start" onclick="openRoundResultModal()">
+                                    <i class="bi bi-trophy me-1"></i><strong>Resultado de Rodada</strong>
+                                    <div class="small text-muted">Envia pontuação, ranking e vencedor de uma rodada específica</div>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -232,6 +237,53 @@
         </div>
     </div>
 
+    <!-- Modal: Resultado de Rodada -->
+    <div class="modal fade" id="roundResultModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="bi bi-trophy me-2"></i>Enviar Resultado de Rodada</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Cada usuário receberá uma mensagem <strong>personalizada</strong> com sua posição, pontuação, acertos, placares exatos, prêmio e o top 5 da rodada.
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Rodada</label>
+                            <select class="form-select" id="rr-round">
+                                <option value="">Carregando rodadas...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Canal de envio</label>
+                            <select class="form-select" id="rr-channel">
+                                <option value="whatsapp">WhatsApp</option>
+                                <option value="both">Email + WhatsApp</option>
+                                <option value="email">Email</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="rr-ranking-preview" class="d-none">
+                        <label class="form-label fw-bold">Ranking atual da rodada selecionada</label>
+                        <div class="border rounded bg-light p-3" id="rr-preview-content">
+                            <div class="text-center text-muted py-2"><div class="spinner-border spinner-border-sm"></div> Carregando ranking...</div>
+                        </div>
+                        <small class="text-muted">Se o ranking ainda não foi calculado, ele será calculado automaticamente antes do envio.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success" id="btn-send-round-result" onclick="sendRoundResult()">
+                        <i class="bi bi-send-fill me-1"></i>Enviar para todos os usuários
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- View modal -->
     <div class="modal fade" id="viewMessageModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
@@ -254,15 +306,18 @@
 
 {% block extra_js %}
 <script>
-let viewModal;
+let viewModal, roundResultModal;
 let allMessages = [];
+let availableRoundsForMsg = [];
 
 document.addEventListener('DOMContentLoaded', function() {
     viewModal = new bootstrap.Modal(document.getElementById('viewMessageModal'));
+    roundResultModal = new bootstrap.Modal(document.getElementById('roundResultModal'));
     checkAdmin();
     loadUsers();
     loadAutomatic();
     loadMessages();
+    loadRoundsForModal();
     
     // Toggle user select
     document.querySelectorAll('input[name="target_type"]').forEach(r => {
@@ -551,6 +606,99 @@ async function submitForm(e) {
 function resetForm() {
     document.getElementById('form-send').reset();
     document.getElementById('user-select-group').classList.add('d-none');
+}
+
+async function loadRoundsForModal() {
+    const token = localStorage.getItem('token');
+    try {
+        const r = await fetch('/api/rankings/rounds', { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!r.ok) return;
+        availableRoundsForMsg = await r.json();
+        const sel = document.getElementById('rr-round');
+        if (!availableRoundsForMsg.length) {
+            sel.innerHTML = '<option value="">Nenhuma rodada disponível</option>';
+            return;
+        }
+        sel.innerHTML = availableRoundsForMsg.map(rd =>
+            `<option value="${rd.round_number}">${rd.label}</option>`
+        ).join('');
+        sel.addEventListener('change', loadRoundPreview);
+    } catch (e) { console.error(e); }
+}
+
+async function loadRoundPreview() {
+    const roundNum = document.getElementById('rr-round').value;
+    if (!roundNum) return;
+    const token = localStorage.getItem('token');
+    const previewDiv = document.getElementById('rr-ranking-preview');
+    const contentDiv = document.getElementById('rr-preview-content');
+    previewDiv.classList.remove('d-none');
+    contentDiv.innerHTML = '<div class="text-center text-muted py-2"><div class="spinner-border spinner-border-sm"></div> Carregando ranking...</div>';
+    try {
+        const r = await fetch(`/api/rankings/round/${roundNum}`, { headers: { 'Authorization': `Bearer ${token}` } });
+        const data = await r.json();
+        const rankings = data.rankings || [];
+        if (!rankings.length) {
+            contentDiv.innerHTML = '<div class="text-muted text-center py-2"><i class="bi bi-info-circle me-1"></i>Ranking ainda não calculado — será calculado automaticamente ao enviar.</div>';
+            return;
+        }
+        const rows = rankings.slice(0, 10).map(rk => {
+            const medal = rk.position === 1 ? '🥇' : rk.position === 2 ? '🥈' : rk.position === 3 ? '🥉' : `${rk.position}º`;
+            const prize = rk.prize_won > 0 ? `<span class="badge bg-success ms-1">R$ ${rk.prize_won.toFixed(0)}</span>` : '';
+            return `<tr><td>${medal}</td><td>${escapeHtml(rk.user_name)}</td><td class="text-center fw-bold">${rk.total_points}</td><td class="text-center">${rk.correct_predictions}</td><td class="text-center">${rk.exact_scores}</td><td>${prize}</td></tr>`;
+        }).join('');
+        contentDiv.innerHTML = `
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Pos</th><th>Jogador</th><th class="text-center">Pts</th><th class="text-center">Acertos</th><th class="text-center">Exatos</th><th>Prêmio</th></tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+            ${rankings.length > 10 ? `<div class="text-muted small text-center mt-1">... e mais ${rankings.length - 10} usuários</div>` : ''}
+        `;
+    } catch (e) {
+        contentDiv.innerHTML = '<div class="text-danger">Erro ao carregar ranking</div>';
+    }
+}
+
+function openRoundResultModal() {
+    loadRoundPreview();
+    roundResultModal.show();
+}
+
+async function sendRoundResult() {
+    const roundNum = parseInt(document.getElementById('rr-round').value);
+    const channel = document.getElementById('rr-channel').value;
+    if (!roundNum) { showToast('Erro', 'Selecione uma rodada', 'danger'); return; }
+
+    const rd = availableRoundsForMsg.find(r => r.round_number === roundNum);
+    const label = rd ? rd.label : `Rodada ${roundNum}`;
+    const chLabel = channel === 'both' ? 'Email + WhatsApp' : channel === 'whatsapp' ? 'WhatsApp' : 'Email';
+    if (!confirm(`Enviar resultado da "${label}" via ${chLabel} para TODOS os usuários?`)) return;
+
+    const btn = document.getElementById('btn-send-round-result');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
+
+    const token = localStorage.getItem('token');
+    try {
+        const r = await fetch('/api/messages/send-round-result', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ round_number: roundNum, channel })
+        });
+        const result = await r.json();
+        if (r.ok) {
+            showToast('Enviado! ✅', `${result.round_label} — Enviadas: ${result.sent} | Falhas: ${result.failed} | Total: ${result.total}`, 'success');
+            roundResultModal.hide();
+            loadMessages();
+        } else {
+            showToast('Erro', result.detail || 'Erro ao enviar', 'danger');
+        }
+    } catch (e) {
+        showToast('Erro', 'Erro de conexão', 'danger');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-send-fill me-1"></i>Enviar para todos os usuários';
+    }
 }
 
 function useTemplate(key) {

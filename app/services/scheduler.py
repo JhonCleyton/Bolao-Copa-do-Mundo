@@ -1,25 +1,55 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from datetime import datetime, timedelta
 import json
+import os
 import requests
+import tempfile
 
 from app.database import SessionLocal
 from app.models import Match, MatchStatus, User, Prediction, RoundRanking, RoundNotification, Payment
 from app.services.whatsapp_service import whatsapp_service
 from app.services.email_service import email_service
 from app.services.pvp_calculator import pvp_calculator
+from app.utils.timezone import get_brasilia_now
 
 scheduler = BackgroundScheduler()
 PREDICTION_DEADLINE_MINUTES = 10  # Minutes before match when predictions are locked
+
+_scheduler_lock_fd = None
+
+
+def _try_acquire_scheduler_lock() -> bool:
+    """
+    Try to acquire an exclusive file lock so only one gunicorn/uvicorn worker
+    runs the background scheduler. Returns True if the lock was acquired.
+    On Windows (dev environment) fcntl is unavailable - always returns True.
+    """
+    global _scheduler_lock_fd
+    lock_path = os.path.join(tempfile.gettempdir(), "bolao_scheduler.lock")
+    try:
+        import fcntl
+        fd = open(lock_path, "w")
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fd.write(str(os.getpid()))
+        fd.flush()
+        _scheduler_lock_fd = fd  # Keep reference alive to hold the lock
+        return True
+    except ImportError:
+        # Windows - fcntl not available, safe to start (dev single-worker)
+        return True
+    except (IOError, OSError):
+        # Lock held by another worker process
+        return False
 
 
 def check_live_matches():
     """Check for matches that should be live and update scores"""
     db = SessionLocal()
     try:
-        now = datetime.utcnow()
+        now = get_brasilia_now()
         
         # Find matches that should be live (started 5 mins ago, not finished)
         matches = db.query(Match).filter(
@@ -44,7 +74,7 @@ def send_match_reminders():
     """Send reminders 1 hour before matches"""
     db = SessionLocal()
     try:
-        now = datetime.utcnow()
+        now = get_brasilia_now()
         one_hour_from_now = now + timedelta(hours=1)
         
         # Find matches starting in ~1 hour
@@ -122,7 +152,7 @@ def send_round_start_notifications():
     """
     db = SessionLocal()
     try:
-        now = datetime.utcnow()
+        now = get_brasilia_now()
         tomorrow = now + timedelta(days=1)
         tomorrow_start = tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
         tomorrow_end = tomorrow.replace(hour=23, minute=59, second=59, microsecond=999999)
@@ -231,7 +261,7 @@ def send_round_end_notifications():
     """
     db = SessionLocal()
     try:
-        now = datetime.utcnow()
+        now = get_brasilia_now()
         yesterday = now - timedelta(days=1)
         yesterday_start = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
         yesterday_end = yesterday.replace(hour=23, minute=59, second=59, microsecond=999999)
@@ -255,13 +285,11 @@ def send_round_end_notifications():
         for round_number, matches in rounds_ended.items():
             # Check if all matches in this round are finished
             total_matches = db.query(Match).filter(
-                Match.round_number == round_number,
-                Match.stage == 'group_stage'
+                Match.round_number == round_number
             ).count()
             
             finished_count = db.query(Match).filter(
                 Match.round_number == round_number,
-                Match.stage == 'group_stage',
                 Match.status == MatchStatus.FINISHED
             ).count()
             
@@ -382,7 +410,7 @@ def process_scheduled_messages():
         from app.models import ScheduledMessage
         from app.routers.messages import deliver_message
         
-        now = datetime.utcnow()
+        now = get_brasilia_now()
         
         # One-time scheduled messages that are due
         due_messages = db.query(ScheduledMessage).filter(
@@ -394,6 +422,18 @@ def process_scheduled_messages():
         
         for msg in due_messages:
             try:
+                # Atomically claim the message: only one worker will get rowcount=1
+                claimed = db.execute(
+                    text(
+                        "UPDATE scheduled_messages SET status='sending'"
+                        " WHERE id=:id AND status IN ('scheduled','pending') AND sent_at IS NULL"
+                    ),
+                    {"id": msg.id}
+                ).rowcount
+                db.commit()
+                if claimed == 0:
+                    continue  # Already claimed by another worker
+                db.refresh(msg)
                 deliver_message(db, msg)
                 print(f"✅ Sent scheduled message {msg.id}")
             except Exception as e:
@@ -411,6 +451,17 @@ def process_scheduled_messages():
         
         for msg in recurring:
             try:
+                claimed = db.execute(
+                    text(
+                        "UPDATE scheduled_messages SET next_run=NULL"
+                        " WHERE id=:id AND status='scheduled' AND next_run IS NOT NULL AND next_run<=:now"
+                    ),
+                    {"id": msg.id, "now": now}
+                ).rowcount
+                db.commit()
+                if claimed == 0:
+                    continue  # Already claimed by another worker
+                db.refresh(msg)
                 deliver_message(db, msg)
                 print(f"🔁 Sent recurring message {msg.id} ({msg.recurrence})")
             except Exception as e:
@@ -454,7 +505,7 @@ def sync_live_matches_with_api():
         db = SessionLocal()
         
         # Get matches scheduled for today or currently live
-        now = datetime.utcnow()
+        now = get_brasilia_now()
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         today_end = today_start + timedelta(days=2)
         
@@ -509,7 +560,13 @@ def sync_live_matches_with_api():
 
 
 def start_scheduler():
-    """Start the background scheduler"""
+    """Start the background scheduler - only runs in one worker process"""
+    if not _try_acquire_scheduler_lock():
+        print(f"[Scheduler] Skipping startup — another worker already holds the scheduler lock (PID {os.getpid()})")
+        return
+
+    print(f"[Scheduler] Lock acquired — starting scheduler (PID {os.getpid()})")
+
     # Check live matches every 5 minutes
     scheduler.add_job(
         check_live_matches,
@@ -587,6 +644,7 @@ def start_scheduler():
 
 
 def stop_scheduler():
-    """Stop the scheduler"""
-    scheduler.shutdown()
-    print("Scheduler stopped")
+    """Stop the scheduler — only if it was started by this worker"""
+    if scheduler.running:
+        scheduler.shutdown()
+        print("Scheduler stopped")

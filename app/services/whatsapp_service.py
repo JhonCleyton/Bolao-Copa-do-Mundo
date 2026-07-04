@@ -260,6 +260,27 @@ Olá, {user_name}! {medal}
 
         return self._send_message(phone, message)
 
+    def send_password_reset(self, phone: str, name: str, reset_url: str) -> bool:
+        """Send password reset link via WhatsApp"""
+        message = f"""🎯 *Bolão Copa 2026 - Recuperação de Senha*
+
+Olá, {name}! 👋
+
+Recebemos uma solicitação para redefinir sua senha.
+
+🔐 *Para criar uma nova senha, acesse:*
+{reset_url}
+
+⏰ Este link expira em *1 hora*.
+
+Se você não solicitou esta recuperação, ignore esta mensagem.
+
+---
+⚽ Bolão Copa 2026
+🌐 https://bolao.jhoncleyton.dev"""
+
+        return self._send_message(phone, message)
+
 
 # Global instance
 whatsapp_service = WhatsAppService()

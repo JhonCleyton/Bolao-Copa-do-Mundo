@@ -377,6 +377,81 @@ https://jhoncleyton.dev
         
         return self._send_email(to_email, subject, html, text)
 
+    def send_password_reset(self, to_email: str, name: str, reset_url: str) -> bool:
+        """Send password reset email with reset link"""
+        subject = "🔐 Recuperação de Senha - Bolão Copa 2026"
+
+        html = f"""
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; margin: 0; padding: 20px;">
+            <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+                <!-- Header -->
+                <div style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); padding: 30px; text-align: center;">
+                    <h1 style="color: #fff; margin: 0; font-size: 24px;">⚽ Bolão Copa 2026</h1>
+                    <p style="color: #ccc; margin: 10px 0 0 0; font-size: 14px;">Recuperação de Senha</p>
+                </div>
+
+                <!-- Content -->
+                <div style="padding: 40px 30px;">
+                    <h2 style="color: #1e3c72; margin: 0 0 20px 0; font-size: 22px;">Olá, {name}! 👋</h2>
+                    <p style="font-size: 16px; color: #555; margin: 0 0 25px 0;">
+                        Recebemos uma solicitação para redefinir a senha da sua conta no Bolão Copa 2026.
+                    </p>
+
+                    <div style="background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%); border-left: 4px solid #1e3c72; padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center;">
+                        <p style="margin: 0 0 20px 0; font-size: 14px; color: #666;">Clique no botão abaixo para criar uma nova senha:</p>
+                        <a href="{reset_url}" style="display: inline-block; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: #fff; padding: 15px 40px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 16px;">
+                            Redefinir Minha Senha
+                        </a>
+                    </div>
+
+                    <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                        <p style="margin: 0; color: #856404; font-size: 14px;">
+                            <strong>⏰ Importante:</strong> Este link expira em <strong>1 hora</strong>.
+                        </p>
+                    </div>
+
+                    <p style="font-size: 14px; color: #888; margin: 25px 0 0 0; text-align: center;">
+                        Se você não solicitou esta recuperação, ignore este email. Sua senha permanece segura.
+                    </p>
+
+                    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+                        <p style="font-size: 12px; color: #999; margin: 0; text-align: center;">
+                            Se o botão não funcionar, copie e cole este link no navegador:<br>
+                            <span style="word-break: break-all;">{reset_url}</span>
+                        </p>
+                    </div>
+                </div>
+
+                {self._get_email_footer()}
+            </div>
+        </body>
+        </html>
+        """
+
+        text = f"""
+Olá, {name}!
+
+Recebemos uma solicitação para redefinir a senha da sua conta no Bolão Copa 2026.
+
+Para criar uma nova senha, acesse o link abaixo:
+{reset_url}
+
+⏰ Este link expira em 1 hora.
+
+Se você não solicitou esta recuperação, ignore este email.
+
+---
+Bolão Copa 2026
+https://jhoncleyton.dev
+"""
+
+        return self._send_email(to_email, subject, html, text)
+
 
 # Global instance
 email_service = EmailService()

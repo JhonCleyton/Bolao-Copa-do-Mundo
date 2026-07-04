@@ -15,19 +15,16 @@
 </div>
 
 <div class="row mb-4">
-    <div class="col-md-6">
+    <div class="col-md-6 mb-3 mb-md-0">
         <label class="form-label">Filtrar por Rodada</label>
-        <select class="form-select" id="round-filter" onchange="loadTransparency()">
-            <option value="">Selecione uma rodada...</option>
-            <option value="1">1ª Rodada</option>
-            <option value="2">2ª Rodada</option>
-            <option value="3">3ª Rodada</option>
+        <select class="form-select" id="round-filter" onchange="onRoundChange()">
+            <option value="">Carregando rodadas...</option>
         </select>
     </div>
     <div class="col-md-6">
         <label class="form-label">Ou selecione um jogo específico</label>
-        <select class="form-select" id="match-filter" onchange="loadMatchTransparency()">
-            <option value="">Selecione um jogo...</option>
+        <select class="form-select" id="match-filter" onchange="onMatchChange()">
+            <option value="">Carregando jogos...</option>
         </select>
     </div>
 </div>
@@ -43,156 +40,272 @@
 
 {% block extra_js %}
 <script>
+const STAGE_LABELS = {
+    'group_stage':  'Fase de Grupos',
+    'round_of_32':  '16 Avos de Final',
+    'round_of_16':  'Oitavas de Final',
+    'quarter_final':'Quartas de Final',
+    'semi_final':   'Semifinais',
+    'third_place':  '3º Lugar',
+    'final':        'Final'
+};
+
+const ROUND_LABELS = {
+    1: '1ª Rodada',
+    2: '2ª Rodada',
+    3: '3ª Rodada',
+    4: '16 Avos de Final',
+    5: 'Oitavas de Final',
+    6: 'Quartas de Final',
+    7: 'Semifinais',
+    8: '3º Lugar',
+    9: 'Final'
+};
+
+let allMatches = [];
+
 document.addEventListener('DOMContentLoaded', function() {
-    loadMatchesForSelect();
+    loadAllMatches();
 });
 
-async function loadMatchesForSelect() {
+async function loadAllMatches() {
     try {
-        const response = await fetch('/api/matches/?status=scheduled');
-        const matches = await response.json();
-        
-        const select = document.getElementById('match-filter');
-        select.innerHTML = '<option value="">Selecione um jogo...</option>';
-        
-        matches.forEach(m => {
-            const option = document.createElement('option');
-            option.value = m.id;
-            option.textContent = `${m.team_a} x ${m.team_b} (${formatDateBR(m.match_date)})`;
-            select.appendChild(option);
-        });
+        const response = await fetch('/api/matches/');
+        allMatches = await response.json();
+        buildRoundSelect();
+        buildMatchSelect();
     } catch (error) {
-        console.error('Error loading matches:', error);
+        console.error('Erro ao carregar partidas:', error);
+        document.getElementById('round-filter').innerHTML = '<option value="">Erro ao carregar</option>';
+        document.getElementById('match-filter').innerHTML = '<option value="">Erro ao carregar</option>';
     }
 }
 
-async function loadTransparency() {
+function buildRoundSelect() {
+    const seen = new Map(); // round_number -> stage
+    allMatches.forEach(m => {
+        if (m.round_number && !seen.has(m.round_number)) {
+            seen.set(m.round_number, m.stage);
+        }
+    });
+
+    const sorted = [...seen.entries()].sort((a, b) => a[0] - b[0]);
+    const select = document.getElementById('round-filter');
+    select.innerHTML = '<option value="">Selecione uma rodada...</option>';
+
+    sorted.forEach(([round, stage]) => {
+        const opt = document.createElement('option');
+        opt.value = round;
+        const stageLabel = STAGE_LABELS[stage] || stage;
+        const roundPrefix = stage === 'group_stage' ? `${round}ª Rodada — ` : '';
+        opt.textContent = roundPrefix + stageLabel;
+        select.appendChild(opt);
+    });
+}
+
+function buildMatchSelect() {
+    const select = document.getElementById('match-filter');
+    select.innerHTML = '<option value="">Selecione um jogo...</option>';
+
+    // Group matches by stage
+    const byStage = {};
+    allMatches.forEach(m => {
+        const key = m.stage || 'group_stage';
+        if (!byStage[key]) byStage[key] = [];
+        byStage[key].push(m);
+    });
+
+    const stageOrder = ['group_stage','round_of_32','round_of_16','quarter_final','semi_final','third_place','final'];
+
+    stageOrder.forEach(stage => {
+        const matches = byStage[stage];
+        if (!matches || matches.length === 0) return;
+
+        const group = document.createElement('optgroup');
+        group.label = STAGE_LABELS[stage] || stage;
+
+        matches.sort((a, b) => new Date(a.match_date) - new Date(b.match_date));
+        matches.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            const dateStr = m.match_date ? formatDateBR(m.match_date) : '';
+            const statusTag = m.status === 'finished' ? ' ✓' : m.status === 'live' ? ' 🔴' : '';
+            opt.textContent = `${m.team_a} x ${m.team_b} (${dateStr})${statusTag}`;
+            group.appendChild(opt);
+        });
+
+        select.appendChild(group);
+    });
+}
+
+function onRoundChange() {
     const round = document.getElementById('round-filter').value;
-    if (!round) return;
-    
-    document.getElementById('match-filter').value = ''; // Clear match filter
-    
+    document.getElementById('match-filter').value = '';
+    if (!round) {
+        resetContent();
+        return;
+    }
+    loadTransparency(round);
+}
+
+function onMatchChange() {
+    const matchId = document.getElementById('match-filter').value;
+    document.getElementById('round-filter').value = '';
+    if (!matchId) {
+        resetContent();
+        return;
+    }
+    loadMatchTransparency(matchId);
+}
+
+function resetContent() {
+    document.getElementById('transparency-content').innerHTML = `
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            Selecione uma rodada ou um jogo específico para ver todos os palpites.
+        </div>`;
+}
+
+async function loadTransparency(round) {
+    showLoading();
     try {
         const response = await fetch(`/api/predictions/transparency/round/${round}`);
+        if (!response.ok) throw new Error('Erro ao carregar');
         const data = await response.json();
-        
         renderRoundTransparency(data);
     } catch (error) {
-        document.getElementById('transparency-content').innerHTML = `
-            <div class="alert alert-danger">Erro ao carregar dados.</div>
-        `;
+        document.getElementById('transparency-content').innerHTML =
+            '<div class="alert alert-danger"><i class="bi bi-x-circle me-2"></i>Erro ao carregar dados.</div>';
     }
 }
 
-async function loadMatchTransparency() {
-    const matchId = document.getElementById('match-filter').value;
-    if (!matchId) return;
-    
-    document.getElementById('round-filter').value = ''; // Clear round filter
-    
+async function loadMatchTransparency(matchId) {
+    showLoading();
     try {
         const response = await fetch(`/api/predictions/transparency/match/${matchId}`);
+        if (!response.ok) throw new Error('Erro ao carregar');
         const data = await response.json();
-        
         renderMatchTransparency(data);
     } catch (error) {
-        document.getElementById('transparency-content').innerHTML = `
-            <div class="alert alert-danger">Erro ao carregar dados.</div>
-        `;
+        document.getElementById('transparency-content').innerHTML =
+            '<div class="alert alert-danger"><i class="bi bi-x-circle me-2"></i>Erro ao carregar dados.</div>';
     }
+}
+
+function showLoading() {
+    document.getElementById('transparency-content').innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted">Carregando palpites...</p>
+        </div>`;
+}
+
+function getFirstTwoNames(fullName) {
+    if (!fullName) return '';
+    const parts = fullName.trim().split(' ');
+    return parts.length >= 2 ? `${parts[0]} ${parts[1]}` : parts[0] || '';
 }
 
 function renderRoundTransparency(data) {
     const container = document.getElementById('transparency-content');
-    
+
     if (Object.keys(data.matches).length === 0) {
-        container.innerHTML = '<div class="alert alert-warning">Nenhum jogo encontrado para esta rodada.</div>';
+        container.innerHTML = '<div class="alert alert-warning"><i class="bi bi-exclamation-circle me-2"></i>Nenhum palpite encontrado para esta rodada.</div>';
         return;
     }
-    
-    let html = `<h4 class="mb-3">${data.round}ª Rodada</h4>`;
-    
+
+    const roundLabel = ROUND_LABELS[data.round] || `Rodada ${data.round}`;
+    let html = `<h5 class="mb-3 fw-bold"><i class="bi bi-list-check me-2"></i>${roundLabel}</h5>`;
+
     for (const [matchId, matchData] of Object.entries(data.matches)) {
+        const hasPoints = matchData.predictions.some(p => p.points !== undefined);
         html += `
-            <div class="card mb-3">
-                <div class="card-header bg-primary text-white">
+            <div class="card mb-3 shadow-sm">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                     <strong>${matchData.match}</strong>
+                    <span class="badge bg-light text-dark">${matchData.predictions.length} palpite(s)</span>
                 </div>
                 <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Participante</th>
-                                    <th class="text-center">Palpite</th>
-                                    ${matchData.predictions.some(p => p.points !== undefined) ? '<th class="text-center">Pontos</th>' : ''}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${matchData.predictions.map(p => `
+                    ${matchData.predictions.length === 0
+                        ? '<p class="text-muted p-3 mb-0">Nenhum palpite registrado.</p>'
+                        : `<div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="table-light">
                                     <tr>
-                                        <td>${p.user_name}</td>
-                                        <td class="text-center fw-bold">${p.predicted_score_a} x ${p.predicted_score_b}</td>
-                                        ${p.points !== undefined ? `<td class="text-center"><span class="badge ${p.points > 0 ? 'bg-success' : 'bg-secondary'}">${p.points}</span></td>` : ''}
+                                        <th>Participante</th>
+                                        <th class="text-center">Palpite</th>
+                                        ${hasPoints ? '<th class="text-center">Pontos</th>' : ''}
                                     </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    ${matchData.predictions.map(p => `
+                                        <tr>
+                                            <td>${getFirstTwoNames(p.user_name)}</td>
+                                            <td class="text-center fw-bold">${p.predicted_score_a} x ${p.predicted_score_b}</td>
+                                            ${hasPoints ? `<td class="text-center"><span class="badge ${p.points > 0 ? 'bg-success' : 'bg-secondary'}">${p.points}</span></td>` : ''}
+                                        </tr>`).join('')}
+                                </tbody>
+                            </table>
+                          </div>`}
                 </div>
-            </div>
-        `;
+            </div>`;
     }
-    
+
     container.innerHTML = html;
 }
 
 function renderMatchTransparency(data) {
     const container = document.getElementById('transparency-content');
-    
     const match = data.match;
     const isFinished = match.status === 'finished';
-    
+    const isLive = match.status === 'live';
+
+    const headerClass = isFinished ? 'bg-success' : isLive ? 'bg-danger' : 'bg-primary';
+    const statusBadge = isFinished
+        ? `<span class="badge bg-light text-dark ms-2">Finalizado</span>`
+        : isLive ? `<span class="badge bg-warning text-dark ms-2">Ao Vivo</span>` : '';
+
     let html = `
-        <div class="card mb-4">
-            <div class="card-header ${isFinished ? 'bg-success' : 'bg-primary'} text-white">
-                <h5 class="mb-0">${match.team_a} x ${match.team_b}</h5>
-                ${isFinished ? `<h4 class="mt-2">${match.score_a} x ${match.score_b}</h4>` : ''}
-                <small>${formatDateTimeBR(match.match_date)}</small>
-            </div>
-            <div class="card-body">
-                <h6 class="card-subtitle mb-3 text-muted">
-                    Total de palpites: ${data.total_predictions}
-                </h6>
-                
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead class="table-light">
-                            <tr>
-                                <th>#</th>
-                                <th>Participante</th>
-                                <th class="text-center">Palpite</th>
-                                <th class="text-center">Hora do Palpite</th>
-                                ${isFinished ? '<th class="text-center">Pontos</th>' : ''}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${data.predictions.map((p, index) => `
-                                <tr>
-                                    <td>${index + 1}</td>
-                                    <td>${p.user_name}</td>
-                                    <td class="text-center fw-bold fs-5">${p.predicted_score_a} x ${p.predicted_score_b}</td>
-                                    <td class="text-center">${formatDateTimeBR(p.prediction_time)}</td>
-                                    ${isFinished ? `<td class="text-center"><span class="badge ${p.points_earned > 0 ? 'bg-success' : 'bg-secondary'}">${p.points_earned}</span></td>` : ''}
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header ${headerClass} text-white">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-1">
+                    <div>
+                        <h5 class="mb-0">${match.team_a} x ${match.team_b} ${statusBadge}</h5>
+                        ${isFinished || isLive ? `<h4 class="mt-1 mb-0">${match.score_a} x ${match.score_b}</h4>` : ''}
+                    </div>
+                    <small class="opacity-75">${match.match_date ? formatDateTimeBR(match.match_date) : ''}</small>
                 </div>
             </div>
-        </div>
-    `;
-    
+            <div class="card-body">
+                <p class="text-muted mb-3">Total de palpites: <strong>${data.total_predictions}</strong></p>
+                ${data.total_predictions === 0
+                    ? '<div class="alert alert-warning mb-0">Nenhum palpite registrado para este jogo.</div>'
+                    : `<div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Participante</th>
+                                    <th class="text-center">Palpite</th>
+                                    <th class="text-center">Hora do Palpite</th>
+                                    ${isFinished ? '<th class="text-center">Pontos</th>' : ''}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.predictions.map((p, i) => `
+                                    <tr>
+                                        <td>${i + 1}</td>
+                                        <td>${getFirstTwoNames(p.user_name)}</td>
+                                        <td class="text-center fw-bold fs-5">${p.predicted_score_a} x ${p.predicted_score_b}</td>
+                                        <td class="text-center small">${p.prediction_time ? formatDateTimeBR(p.prediction_time) : '-'}</td>
+                                        ${isFinished ? `<td class="text-center"><span class="badge ${p.points_earned > 0 ? 'bg-success' : 'bg-secondary'}">${p.points_earned}</span></td>` : ''}
+                                    </tr>`).join('')}
+                            </tbody>
+                        </table>
+                       </div>`}
+            </div>
+        </div>`;
+
     container.innerHTML = html;
 }
 </script>

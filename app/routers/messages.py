@@ -29,6 +29,11 @@ class MessageCreate(BaseModel):
     recurrence: Optional[str] = None  # null, daily, weekly, monthly
 
 
+class RoundResultRequest(BaseModel):
+    round_number: int
+    channel: str  # email, whatsapp, both
+
+
 # --- Automatic (scheduler) messages ---
 AUTOMATIC_MESSAGES = [
     {
@@ -278,3 +283,159 @@ def resend_message(
         raise HTTPException(status_code=404, detail="Message not found")
     result = deliver_message(db, msg)
     return {"message": "Reenviada", **result}
+
+
+@router.post("/send-round-result")
+def send_round_result(
+    data: RoundResultRequest,
+    current_user=Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Envia o resultado de uma rodada específica para todos os usuários ativos"""
+    from app.models import Match, RoundRanking
+    from app.routers.rankings import calculate_round_ranking_internal
+
+    if data.channel not in ("email", "whatsapp", "both"):
+        raise HTTPException(status_code=400, detail="Canal inválido. Use: email, whatsapp ou both")
+
+    round_number = data.round_number
+
+    # Monta label da fase/rodada
+    STAGE_LABELS = {
+        'group_stage': f'{round_number}ª Rodada',
+        'round_of_32': 'Fase de 32',
+        'round_of_16': 'Oitavas de Final',
+        'quarter_final': 'Quartas de Final',
+        'semi_final': 'Semifinais',
+        'third_place': '3º Lugar / Final',
+        'final': 'Final',
+    }
+    match_ref = db.query(Match).filter(Match.round_number == round_number).first()
+    if not match_ref:
+        raise HTTPException(status_code=404, detail=f"Rodada {round_number} não encontrada")
+    stage_val = match_ref.stage.value if match_ref.stage and hasattr(match_ref.stage, 'value') else ''
+    round_label = STAGE_LABELS.get(stage_val, f'{round_number}ª Rodada')
+
+    # Se não há ranking calculado, calcula agora
+    existing = db.query(RoundRanking).filter(RoundRanking.round_number == round_number).first()
+    if not existing:
+        count = calculate_round_ranking_internal(round_number, db)
+        if count == 0:
+            raise HTTPException(status_code=404, detail=f"Nenhuma predição encontrada para calcular o ranking da {round_label}")
+
+    # Busca rankings ordenados por posição
+    rankings = db.query(RoundRanking).filter(
+        RoundRanking.round_number == round_number
+    ).order_by(RoundRanking.position).all()
+
+    if not rankings:
+        raise HTTPException(status_code=404, detail=f"Ranking da {round_label} não encontrado")
+
+    # Vencedor (1º lugar)
+    winner_ranking = rankings[0]
+    winner_user = db.query(User).filter(User.id == winner_ranking.user_id).first()
+    winner_first_name = winner_user.full_name.split()[0] if winner_user else 'N/A'
+
+    # Monta ranking resumido para incluir na mensagem (top 5)
+    top5_lines = []
+    for r in rankings[:5]:
+        u = db.query(User).filter(User.id == r.user_id).first()
+        name = u.full_name.split()[0] if u else f'Usuário {r.user_id}'
+        medal = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][r.position - 1] if r.position <= 5 else f'{r.position}º'
+        prize_str = f' | 💰 R$ {r.prize_won:.0f}' if r.prize_won > 0 else ''
+        top5_lines.append(f'{medal} {name} — {r.total_points} pts{prize_str}')
+    ranking_block = '\n'.join(top5_lines)
+
+    sent = 0
+    failed = 0
+
+    for ranking in rankings:
+        user = db.query(User).filter(User.id == ranking.user_id).first()
+        if not user:
+            continue
+
+        first_name = user.full_name.split()[0] if user.full_name else user.full_name
+        is_winner = ranking.position == 1
+
+        if is_winner:
+            message = f"""🏆🎉 *PARABÉNS! Você venceu a {round_label}!* 🎉🏆
+
+Olá, {first_name}!
+
+Você foi o CAMPEÃO da {round_label}!
+
+📊 *SEU DESEMPENHO:*
+• Pontos: *{ranking.total_points}*
+• Posição: *{ranking.position}º LUGAR* 🥇
+• Acertos: {ranking.correct_predictions}
+• Placares Exatos: {ranking.exact_scores}
+
+💰 *PRÊMIO: R$ {ranking.prize_won:.2f}*
+
+🏅 *TOP 5 DA {round_label.upper()}:*
+{ranking_block}
+
+Continue assim! 🚀"""
+            email_subject = f"🏆 VOCÊ VENCEU — {round_label}! - Bolão Copa 2026"
+        else:
+            message = f"""🎯 *Resultado — {round_label}*
+
+Olá, {first_name}!
+
+📊 *SEU DESEMPENHO:*
+• Pontos: *{ranking.total_points}*
+• Posição: *{ranking.position}º lugar*
+• Acertos: {ranking.correct_predictions}
+• Placares Exatos: {ranking.exact_scores}
+• Prêmio: R$ {ranking.prize_won:.2f}
+
+🏆 *VENCEDOR:* {winner_first_name} — {winner_ranking.total_points} pts
+
+🏅 *TOP 5 DA {round_label.upper()}:*
+{ranking_block}
+
+Continue participando! 💪"""
+            email_subject = f"📊 Resultado — {round_label} - Bolão Copa 2026"
+
+        html_body = (
+            f"<h2>Resultado da {round_label}</h2>"
+            f"<p>Olá, {first_name}!</p>"
+            f"<ul>"
+            f"<li><strong>Pontos:</strong> {ranking.total_points}</li>"
+            f"<li><strong>Posição:</strong> {ranking.position}º lugar</li>"
+            f"<li><strong>Acertos:</strong> {ranking.correct_predictions}</li>"
+            f"<li><strong>Placares Exatos:</strong> {ranking.exact_scores}</li>"
+            f"<li><strong>Prêmio:</strong> R$ {ranking.prize_won:.2f}</li>"
+            f"</ul>"
+            f"<h3>Top 5</h3><pre>{ranking_block}</pre>"
+        )
+
+        ok = True
+        if data.channel in ("whatsapp", "both"):
+            try:
+                if not whatsapp_service._send_message(user.phone, message):
+                    ok = False
+            except Exception:
+                ok = False
+
+        if data.channel in ("email", "both"):
+            try:
+                if not email_service._send_email(user.email, email_subject, html_body, message):
+                    ok = False
+            except Exception:
+                ok = False
+
+        if ok:
+            sent += 1
+        else:
+            failed += 1
+
+    return {
+        "message": f"Resultado da {round_label} enviado",
+        "round_number": round_number,
+        "round_label": round_label,
+        "winner": winner_first_name,
+        "sent": sent,
+        "failed": failed,
+        "total": len(rankings),
+    }

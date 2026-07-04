@@ -14,21 +14,10 @@
     <div class="col-md-3 mb-3">
         <div class="list-group" id="ranking-tabs">
             <button class="list-group-item list-group-item-action active" 
-                    onclick="showRanking('general')">
+                    onclick="showRanking('general', this)">
                 <i class="bi bi-trophy me-2"></i>Geral
             </button>
-            <button class="list-group-item list-group-item-action" 
-                    onclick="showRanking('round-1')">
-                <i class="bi bi-1-circle me-2"></i>1ª Rodada
-            </button>
-            <button class="list-group-item list-group-item-action" 
-                    onclick="showRanking('round-2')">
-                <i class="bi bi-2-circle me-2"></i>2ª Rodada
-            </button>
-            <button class="list-group-item list-group-item-action" 
-                    onclick="showRanking('round-3')">
-                <i class="bi bi-3-circle me-2"></i>3ª Rodada
-            </button>
+            <!-- Round tabs loaded dynamically -->
         </div>
     </div>
     
@@ -48,6 +37,7 @@
                                 <th class="text-center">Pontos</th>
                                 <th class="text-center">Acertos</th>
                                 <th class="text-center">Exatos</th>
+                                <th class="text-center">Aproveit.</th>
                                 <th class="text-center" id="prize-header">Prêmio</th>
                             </tr>
                         </thead>
@@ -68,21 +58,26 @@
             <div class="card-body text-center">
                 <h4>Minha Posição</h4>
                 <div class="row mt-3">
-                    <div class="col-md-3">
+                    <div class="col-6 col-md-2 mb-3">
                         <h2 id="my-position">-</h2>
-                        <p>Posição</p>
+                        <p class="mb-0">Posição</p>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-6 col-md-2 mb-3">
                         <h2 id="my-points">0</h2>
-                        <p>Pontos</p>
+                        <p class="mb-0">Pontos</p>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-6 col-md-2 mb-3">
                         <h2 id="my-correct">0</h2>
-                        <p>Acertos</p>
+                        <p class="mb-0">Acertos</p>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-6 col-md-2 mb-3">
                         <h2 id="my-exact">0</h2>
-                        <p>Placares Exatos</p>
+                        <p class="mb-0">Exatos</p>
+                    </div>
+                    <div class="col-12 col-md-4 mb-3">
+                        <h2 id="my-aproveitamento">-</h2>
+                        <p class="mb-0">Aproveitamento</p>
+                        <small id="my-matches-info" class="opacity-75"></small>
                     </div>
                 </div>
             </div>
@@ -95,17 +90,66 @@
 {% block extra_js %}
 <script>
 let currentRanking = 'general';
+let availableRounds = [];
 
-document.addEventListener('DOMContentLoaded', function() {
+const STAGE_ICONS = {
+    'group_stage': 'bi-circle',
+    'round_of_32': 'bi-grid-3x3-gap',
+    'round_of_16': 'bi-diagram-3',
+    'quarter_final': 'bi-clipboard2-data',
+    'semi_final': 'bi-bar-chart-steps',
+    'third_place': 'bi-award',
+    'final': 'bi-trophy-fill',
+};
+
+document.addEventListener('DOMContentLoaded', async function() {
+    await loadAvailableRounds();
     loadRanking('general');
 });
 
-function showRanking(type) {
-    // Update active tab
-    document.querySelectorAll('#ranking-tabs .list-group-item').forEach(btn => {
-        btn.classList.remove('active');
+async function loadAvailableRounds() {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+        const response = await fetch('/api/rankings/rounds', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+            availableRounds = await response.json();
+            buildRoundTabs();
+        }
+    } catch (error) {
+        console.error('Error loading rounds:', error);
+    }
+}
+
+function buildRoundTabs() {
+    const tabs = document.getElementById('ranking-tabs');
+    // Remove old dynamic round buttons
+    tabs.querySelectorAll('.round-tab-btn').forEach(btn => btn.remove());
+
+    availableRounds.forEach(round => {
+        const icon = STAGE_ICONS[round.stage] || 'bi-circle';
+        const btn = document.createElement('button');
+        btn.className = 'list-group-item list-group-item-action round-tab-btn';
+        btn.setAttribute('data-round', round.round_number);
+        btn.onclick = function() { showRanking('round-' + round.round_number, this); };
+        btn.innerHTML = `<i class="bi ${icon} me-2"></i>${round.label}`;
+        tabs.appendChild(btn);
     });
-    event.target.classList.add('active');
+}
+
+function getRoundLabel(roundNumber) {
+    const round = availableRounds.find(r => r.round_number === parseInt(roundNumber));
+    return round ? round.label : `${roundNumber}ª Rodada`;
+}
+
+function showRanking(type, btn) {
+    // Update active tab
+    document.querySelectorAll('#ranking-tabs .list-group-item').forEach(b => {
+        b.classList.remove('active');
+    });
+    if (btn) btn.classList.add('active');
     
     // Show/hide prize column
     document.getElementById('prize-header').style.display = 
@@ -128,7 +172,10 @@ async function loadRanking(type) {
     } else {
         const round = type.split('-')[1];
         url = `/api/rankings/round/${round}`;
-        title = `<i class="bi bi-${round}-circle me-2"></i>${round}ª Rodada`;
+        const label = getRoundLabel(round);
+        const roundData = availableRounds.find(r => r.round_number === parseInt(round));
+        const icon = roundData ? (STAGE_ICONS[roundData.stage] || 'bi-circle') : 'bi-circle';
+        title = `<i class="bi ${icon} me-2"></i>${label}`;
     }
     
     document.getElementById('ranking-title').innerHTML = title;
@@ -146,10 +193,14 @@ async function loadRanking(type) {
         
         const tbody = document.getElementById('ranking-body');
         
-        if (rankings.length === 0) {
+        // Extrair rankings do novo formato de resposta
+        const rankingsList = data.rankings || data;
+        const matchesFinished = data.matches_finished || 0;
+        
+        if (rankingsList.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="text-center py-4 text-muted">
+                    <td colspan="7" class="text-center py-4 text-muted">
                         <i class="bi bi-inbox display-4"></i>
                         <p class="mt-2">Ranking ainda não disponível</p>
                     </td>
@@ -157,9 +208,18 @@ async function loadRanking(type) {
             return;
         }
         
-        tbody.innerHTML = rankings.map((r, index) => {
+        tbody.innerHTML = rankingsList.map((r, index) => {
             const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
             const highlightClass = r.user_id === getCurrentUserId() ? 'table-primary' : '';
+            
+            // Formatar aproveitamento com cor baseada no valor
+            let aproveitamentoClass = 'text-muted';
+            if (r.aproveitamento >= 70) aproveitamentoClass = 'text-success fw-bold';
+            else if (r.aproveitamento >= 50) aproveitamentoClass = 'text-primary';
+            else if (r.aproveitamento >= 30) aproveitamentoClass = 'text-warning';
+            else if (r.aproveitamento > 0) aproveitamentoClass = 'text-danger';
+            
+            const aproveitamentoText = r.aproveitamento > 0 ? `${r.aproveitamento}%` : '-';
             
             return `
                 <tr class="${highlightClass}">
@@ -170,6 +230,7 @@ async function loadRanking(type) {
                     <td class="text-center fw-bold text-primary">${r.total_points}</td>
                     <td class="text-center">${r.correct_predictions}</td>
                     <td class="text-center">${r.exact_scores}</td>
+                    <td class="text-center ${aproveitamentoClass}">${aproveitamentoText}</td>
                     <td class="text-center" style="display: ${type === 'general' ? 'none' : 'table-cell'}">
                         ${r.prize_won > 0 ? `<span class="badge bg-success">R$ ${r.prize_won.toFixed(2)}</span>` : '-'}
                     </td>
@@ -207,6 +268,30 @@ async function loadMyPosition(type) {
             document.getElementById('my-points').textContent = data.total_points || 0;
             document.getElementById('my-correct').textContent = data.correct_predictions || 0;
             document.getElementById('my-exact').textContent = data.exact_scores || 0;
+            
+            // Aproveitamento
+            const aproveitamento = data.aproveitamento || 0;
+            const aprovEl = document.getElementById('my-aproveitamento');
+            if (aproveitamento > 0) {
+                aprovEl.textContent = `${aproveitamento}%`;
+                // Color based on value
+                aprovEl.className = 'h2 mb-0 ' + (
+                    aproveitamento >= 70 ? 'text-success' :
+                    aproveitamento >= 50 ? 'text-white' :
+                    aproveitamento >= 30 ? 'text-warning' : 'text-danger'
+                );
+            } else {
+                aprovEl.textContent = '-';
+                aprovEl.className = 'h2 mb-0';
+            }
+            
+            // Info sobre jogos
+            const matchesInfo = document.getElementById('my-matches-info');
+            if (data.matches_finished > 0) {
+                matchesInfo.textContent = `${data.matches_finished} jogo(s) finalizado(s)`;
+            } else {
+                matchesInfo.textContent = '';
+            }
         }
     } catch (error) {
         console.error('Error loading my position:', error);

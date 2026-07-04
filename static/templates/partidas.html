@@ -184,7 +184,9 @@ async function loadTodayMatches() {
     if (!token) return;
     
     try {
-        const today = new Date().toISOString().split('T')[0];
+        // Usar data local do sistema para filtrar
+        const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        
         const response = await fetch('/api/matches', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -193,7 +195,8 @@ async function loadTodayMatches() {
         
         const allMatches = await response.json();
         const todayMatches = allMatches.filter(m => {
-            const matchDate = new Date(m.match_date).toISOString().split('T')[0];
+            // Comparar datas no formato local
+            const matchDate = new Date(m.match_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
             return matchDate === today && m.status !== 'finished';
         });
         
@@ -229,7 +232,7 @@ async function loadUpcomingMatches() {
         if (!response.ok) throw new Error('Failed to load');
         
         const matches = await response.json();
-        // Show only next 6 matches
+        // Show only next 6 scheduled matches (soonest first)
         const upcoming = matches.slice(0, 6);
         renderUpcomingMatches(upcoming);
     } catch (error) {
@@ -263,8 +266,8 @@ async function loadFinishedMatches() {
         if (!response.ok) throw new Error('Failed to load');
         
         const matches = await response.json();
-        // Show only last 6 finished matches
-        const finished = matches.slice(0, 6);
+        // Show only last 6 finished matches (most recent first)
+        const finished = matches.slice(-6).reverse();
         renderFinishedMatches(finished);
     } catch (error) {
         console.error('Error loading finished matches:', error);
@@ -296,15 +299,11 @@ function createMatchCard(match, isLive) {
     };
     
     const status = statusConfig[match.status] || statusConfig['scheduled'];
-    // Data já está em horário de Brasília, não tratar como UTC
-    const clean = match.match_date.replace('Z', '');
-    const matchDate = new Date(clean);
-    const formattedDate = matchDate.toLocaleDateString('pt-BR', { 
-        day: '2-digit', 
-        month: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
+    // Usar brasilia_time direto do backend - já está em horário correto
+    const dateObj = new Date(match.match_date);
+    const dateStr = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const timeStr = match.brasilia_time || dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const formattedDate = `${dateStr} ${timeStr}`;
     
     const scoreA = match.score_a !== null ? match.score_a : '-';
     const scoreB = match.score_b !== null ? match.score_b : '-';

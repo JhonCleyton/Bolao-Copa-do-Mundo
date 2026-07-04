@@ -12,6 +12,51 @@ from app.services.whatsapp_service import whatsapp_service
 router = APIRouter()
 
 
+def get_first_two_names(full_name: str) -> str:
+    """Return only first and second name, or just first if only one exists"""
+    if not full_name:
+        return ""
+    parts = full_name.strip().split()
+    if len(parts) >= 2:
+        return f"{parts[0]} {parts[1]}"
+    return parts[0] if parts else ""
+
+
+@router.get("/rounds")
+def get_available_rounds(db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+    """Get all rounds that have matches, with proper stage labels"""
+    STAGE_LABELS = {
+        'group_stage': '{n}ª Rodada',
+        'round_of_32': 'Fase de 32',
+        'round_of_16': 'Oitavas de Final',
+        'quarter_final': 'Quartas de Final',
+        'semi_final': 'Semifinais',
+        'third_place': '3º Lugar / Final',
+        'final': '3º Lugar / Final',
+    }
+
+    all_rounds = db.query(Match.round_number, Match.stage)\
+        .distinct()\
+        .order_by(Match.round_number)\
+        .all()
+
+    seen = set()
+    result = []
+    for round_number, stage in all_rounds:
+        if round_number in seen:
+            continue
+        seen.add(round_number)
+        stage_val = stage.value if stage and hasattr(stage, 'value') else (stage or '')
+        template = STAGE_LABELS.get(stage_val, 'Rodada {n}')
+        result.append({
+            'round_number': round_number,
+            'stage': stage_val,
+            'label': template.replace('{n}', str(round_number)),
+        })
+
+    return result
+
+
 @router.get("/round/{round_number}")
 def get_round_ranking(
     round_number: int,
@@ -19,6 +64,15 @@ def get_round_ranking(
     current_user = Depends(get_current_user)
 ):
     """Get ranking for a specific round"""
+    from app.models import Match
+    
+    # Count finished matches in this round for max points calculation
+    finished_matches = db.query(Match).filter(
+        Match.round_number == round_number,
+        Match.status == 'finished'
+    ).count()
+    max_possible_points = finished_matches * 8  # 8 points max per match
+    
     rankings = db.query(RoundRanking, User).join(
         User, RoundRanking.user_id == User.id
     ).filter(
@@ -27,20 +81,29 @@ def get_round_ranking(
     
     result = []
     for ranking, user in rankings:
+        # Calculate aproveitamento (performance percentage)
+        aproveitamento = 0
+        if max_possible_points > 0 and ranking.total_points > 0:
+            aproveitamento = round((ranking.total_points / max_possible_points) * 100, 1)
+        
         result.append({
             "id": ranking.id,
             "user_id": ranking.user_id,
-            "user_name": user.full_name,
+            "user_name": get_first_two_names(user.full_name),
             "round_number": ranking.round_number,
             "total_points": ranking.total_points,
             "correct_predictions": ranking.correct_predictions,
             "exact_scores": ranking.exact_scores,
             "position": ranking.position,
-            "prize_won": ranking.prize_won
+            "prize_won": ranking.prize_won,
+            "aproveitamento": aproveitamento,
+            "matches_finished": finished_matches
         })
     
     return {
         "round": round_number,
+        "max_possible_points": max_possible_points,
+        "matches_finished": finished_matches,
         "rankings": result
     }
 
@@ -48,24 +111,43 @@ def get_round_ranking(
 @router.get("/general")
 def get_general_ranking(db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     """Get general ranking with user names"""
+    from app.models import Match
+    
+    # Count all finished matches for max points calculation
+    finished_matches = db.query(Match).filter(
+        Match.status == 'finished'
+    ).count()
+    max_possible_points = finished_matches * 8  # 8 points max per match
+    
     rankings = db.query(GeneralRanking, User).join(
         User, GeneralRanking.user_id == User.id
     ).order_by(GeneralRanking.position).all()
     
     result = []
     for ranking, user in rankings:
+        # Calculate aproveitamento (performance percentage)
+        aproveitamento = 0
+        if max_possible_points > 0 and ranking.total_points > 0:
+            aproveitamento = round((ranking.total_points / max_possible_points) * 100, 1)
+        
         result.append({
             "id": ranking.id,
             "user_id": ranking.user_id,
-            "user_name": user.full_name,
+            "user_name": get_first_two_names(user.full_name),
             "total_points": ranking.total_points,
             "correct_predictions": ranking.correct_predictions,
             "exact_scores": ranking.exact_scores,
             "position": ranking.position,
-            "updated_at": ranking.updated_at
+            "updated_at": ranking.updated_at,
+            "aproveitamento": aproveitamento,
+            "matches_finished": finished_matches
         })
     
-    return result
+    return {
+        "max_possible_points": max_possible_points,
+        "matches_finished": finished_matches,
+        "rankings": result
+    }
 
 
 @router.get("/me/round/{round_number}")
@@ -75,6 +157,15 @@ def get_my_round_ranking(
     current_user = Depends(get_current_user)
 ):
     """Get current user's ranking for a specific round"""
+    from app.models import Match
+    
+    # Count finished matches in this round
+    finished_matches = db.query(Match).filter(
+        Match.round_number == round_number,
+        Match.status == 'finished'
+    ).count()
+    max_possible_points = finished_matches * 8
+    
     ranking = db.query(RoundRanking).filter(
         RoundRanking.user_id == current_user.id,
         RoundRanking.round_number == round_number
@@ -85,10 +176,28 @@ def get_my_round_ranking(
             "round": round_number,
             "total_points": 0,
             "position": None,
+            "aproveitamento": 0,
+            "matches_finished": finished_matches,
             "message": "No ranking available for this round yet"
         }
     
-    return ranking
+    # Calculate aproveitamento
+    aproveitamento = 0
+    if max_possible_points > 0 and ranking.total_points > 0:
+        aproveitamento = round((ranking.total_points / max_possible_points) * 100, 1)
+    
+    return {
+        "id": ranking.id,
+        "user_id": ranking.user_id,
+        "round_number": ranking.round_number,
+        "total_points": ranking.total_points,
+        "correct_predictions": ranking.correct_predictions,
+        "exact_scores": ranking.exact_scores,
+        "position": ranking.position,
+        "prize_won": ranking.prize_won,
+        "aproveitamento": aproveitamento,
+        "matches_finished": finished_matches
+    }
 
 
 @router.get("/me/general")
@@ -97,6 +206,14 @@ def get_my_general_ranking(
     current_user = Depends(get_current_user)
 ):
     """Get current user's general ranking"""
+    from app.models import Match
+    
+    # Count all finished matches
+    finished_matches = db.query(Match).filter(
+        Match.status == 'finished'
+    ).count()
+    max_possible_points = finished_matches * 8
+    
     ranking = db.query(GeneralRanking).filter(
         GeneralRanking.user_id == current_user.id
     ).first()
@@ -111,15 +228,37 @@ def get_my_general_ranking(
         correct = sum(1 for p in predictions if p.points_earned >= 2)
         exact = sum(1 for p in predictions if p.points_exact > 0)
         
+        # Calculate aproveitamento
+        aproveitamento = 0
+        if max_possible_points > 0 and total_points > 0:
+            aproveitamento = round((total_points / max_possible_points) * 100, 1)
+        
         return {
             "user_id": current_user.id,
             "total_points": total_points,
             "correct_predictions": correct,
             "exact_scores": exact,
-            "position": None
+            "position": None,
+            "aproveitamento": aproveitamento,
+            "matches_finished": finished_matches
         }
     
-    return ranking
+    # Calculate aproveitamento for existing ranking
+    aproveitamento = 0
+    if max_possible_points > 0 and ranking.total_points > 0:
+        aproveitamento = round((ranking.total_points / max_possible_points) * 100, 1)
+    
+    return {
+        "id": ranking.id,
+        "user_id": ranking.user_id,
+        "total_points": ranking.total_points,
+        "correct_predictions": ranking.correct_predictions,
+        "exact_scores": ranking.exact_scores,
+        "position": ranking.position,
+        "updated_at": ranking.updated_at,
+        "aproveitamento": aproveitamento,
+        "matches_finished": finished_matches
+    }
 
 
 # Admin endpoints for calculating rankings
@@ -139,6 +278,7 @@ def calculate_round_ranking_internal(round_number: int, db: Session):
     ).all()
     
     match_ids = [m.id for m in matches_in_round]
+    print(f"[RANK-CALC] Round {round_number}: {len(match_ids)} matches, {len(all_users)} users")
     
     # Calculate points per user (only for users with predictions)
     user_stats = db.query(
@@ -149,6 +289,11 @@ def calculate_round_ranking_internal(round_number: int, db: Session):
     ).filter(
         Prediction.match_id.in_(match_ids)
     ).group_by(Prediction.user_id).all()
+    
+    # Log top 3 users for debugging
+    sorted_stats = sorted(user_stats, key=lambda x: x.total_points or 0, reverse=True)[:3]
+    for stat in sorted_stats:
+        print(f"[RANK-CALC] User {stat.user_id}: {stat.total_points} points")
     
     # Create dict for quick lookup
     stats_by_user = {stat.user_id: stat for stat in user_stats}
